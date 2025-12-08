@@ -1,16 +1,20 @@
-import { redirect } from "next/navigation";
-import { getAuthUser } from "@/lib/auth";
+import jwt, { JwtPayload } from "jsonwebtoken";
+
+interface MyJwtPayload extends JwtPayload {
+  email?: string;
+}
 
 export default function PortalPage() {
-  const user = getAuthUser();
+  const token = /* token de cookies */;
+  const decoded = jwt.verify(token, process.env.JWT_SECRET!) as string | MyJwtPayload;
 
-  if (!user) {
-    redirect("/login");
+  if (typeof decoded === "string" || !decoded.email) {
+    return <div>Token inválido</div>;
   }
 
   return (
     <div>
-      <h1>Bienvenido {user.email}</h1>
+      <h1>Bienvenido {decoded.email}</h1>
     </div>
   );
 }
