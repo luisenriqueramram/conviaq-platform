@@ -6,8 +6,9 @@ interface MyJwtPayload extends JwtPayload {
   email?: string;
 }
 
-export default function PortalPage() {
-  const cookieStore = cookies();
+export default async function PortalPage() {
+  // 👇 ahora sí, esperamos la promesa
+  const cookieStore = await cookies();
   const token = cookieStore.get("conviaq_token")?.value;
 
   if (!token) {
