@@ -1,35 +1,15 @@
-import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 
-// src/lib/auth.ts
-export const COOKIE_NAME = "conviaq_token";
+const JWT_SECRET = process.env.JWT_SECRET || "";
 
-export const JWT_SECRET = process.env.JWT_SECRET as string;
-
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET no está definido en las variables de entorno");
+export interface JwtPayload {
+  email: string;
 }
 
-
-export async function setAuthToken(token: string) {
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: true,
-    path: "/",
-  });
-}
-
-export async function clearAuthToken() {
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, "", {
-    httpOnly: true,
-    secure: true,
-    path: "/",
-    expires: new Date(0), // expira inmediatamente
-  });
-}
-
-export async function getAuthToken() {
-  const cookieStore = await cookies();
-  return cookieStore.get(COOKIE_NAME)?.value ?? null;
+export function decodeToken(token: string): JwtPayload | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as JwtPayload;
+  } catch {
+    return null;
+  }
 }
