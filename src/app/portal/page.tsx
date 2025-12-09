@@ -1,27 +1,23 @@
-export const dynamic = "force-dynamic";
-
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { decodeToken } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 
 export default async function PortalPage() {
-  // 👇 aquí va el await porque cookies() es una Promise
-  const cookieStore = await cookies();
-  const token = cookieStore.get("CONVIAQ_TOKEN")?.value;
+  const user = await getSessionUser(); // 👈 ahora es async
 
-  if (!token) {
-    return redirect("/login");
-  }
-
-  const decoded = decodeToken(token);
-
-  if (!decoded || !decoded.email) {
-    return redirect("/login");
+  if (!user) {
+    redirect("/login");
   }
 
   return (
-    <div>
-      <h1>Bienvenido {decoded.email}</h1>
-    </div>
+    <main className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="max-w-xl w-full px-6">
+        <h1 className="text-2xl font-semibold mb-2">
+          Bienvenido, <span className="text-emerald-400">{user.email}</span>
+        </h1>
+        <p className="text-zinc-400">
+          Aquí va el dashboard interno de CONVIAQ (beta).
+        </p>
+      </div>
+    </main>
   );
 }
