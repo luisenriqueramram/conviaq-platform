@@ -16,11 +16,11 @@ function getPool() {
     
     poolInstance = new Pool({
       connectionString: AUTOLAVADO_DB_URL,
-      max: 10,
-      idleTimeoutMillis: 60000,
-      connectionTimeoutMillis: 60000,
-      query_timeout: 60000,
-      statement_timeout: 60000,
+      max: 2,
+      connectionTimeoutMillis: 120000,
+      idleTimeoutMillis: 120000,
+      query_timeout: 120000,
+      statement_timeout: 120000,
     });
 
     // Resetear pool si hay error de circuit breaker

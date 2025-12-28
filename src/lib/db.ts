@@ -15,11 +15,11 @@ function getPool() {
     
     poolInstance = new Pool({
       connectionString: process.env.DATABASE_URL,
-      max: 3,
-      connectionTimeoutMillis: 60000,
-      idleTimeoutMillis: 60000,
-      query_timeout: 60000,
-      statement_timeout: 60000,
+      max: 2,
+      connectionTimeoutMillis: 120000,
+      idleTimeoutMillis: 120000,
+      query_timeout: 120000,
+      statement_timeout: 120000,
     });
   }
   return poolInstance;
