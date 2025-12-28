@@ -93,6 +93,8 @@ export async function POST(req: Request) {
       [email]
     );
 
+    console.log(`[LOGIN] Buscando usuario: ${email}, encontrados: ${rows.length}`);
+
     if (rows.length === 0) {
       const key = getKey(email, req);
       attemptsMap.set(key, [...(attemptsMap.get(key) || []), now]);
@@ -132,6 +134,7 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     console.error("🔥 Error en /api/login:", errorMessage);
+    console.error("🔥 Stack trace:", err instanceof Error ? err.stack : 'No stack');
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
