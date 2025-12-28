@@ -19,6 +19,9 @@ ENV EVOLUTION_BASE_URL=$EVOLUTION_BASE_URL
 ENV EVOLUTION_API_KEY=$EVOLUTION_API_KEY
 ENV AUTOLAVADO_DB_URL=$AUTOLAVADO_DB_URL
 
+# Forzar Node.js a usar solo IPv4 (familia 4) para resolver DNS
+ENV NODE_OPTIONS="--dns-result-order=ipv4first"
+
 RUN npm run build
 
 EXPOSE 3000

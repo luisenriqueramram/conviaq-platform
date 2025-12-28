@@ -10,15 +10,8 @@ function getPool() {
       throw new Error("AUTOLAVADO_DB_URL is not set in environment variables");
     }
     
-    // Modificar URL para forzar IPv4
-    let connectionString = AUTOLAVADO_DB_URL;
-    if (connectionString.includes('supabase.com')) {
-      const url = new URL(connectionString.replace('postgresql://', 'http://'));
-      connectionString = connectionString.replace(url.hostname, `ipv4.${url.hostname}`);
-    }
-    
     poolInstance = new Pool({
-      connectionString,
+      connectionString: AUTOLAVADO_DB_URL,
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
