@@ -1,18 +1,28 @@
 // src/lib/db-autolavado.ts
 import { Pool } from "pg";
 
-const AUTOLAVADO_DB_URL = process.env.AUTOLAVADO_DB_URL;
+let poolInstance: Pool | null = null;
 
-if (!AUTOLAVADO_DB_URL) {
-  throw new Error("AUTOLAVADO_DB_URL is not set in environment variables");
+function getPool() {
+  if (!poolInstance) {
+    const AUTOLAVADO_DB_URL = process.env.AUTOLAVADO_DB_URL;
+    if (!AUTOLAVADO_DB_URL) {
+      throw new Error("AUTOLAVADO_DB_URL is not set in environment variables");
+    }
+    poolInstance = new Pool({
+      connectionString: AUTOLAVADO_DB_URL,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
+  }
+  return poolInstance;
 }
 
-// Pool de conexiones para la base de datos de autolavado (separada del CRM)
-export const dbAutolavado = new Pool({
-  connectionString: AUTOLAVADO_DB_URL,
-  max: 10, // máximo de conexiones
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+export const dbAutolavado = new Proxy({} as Pool, {
+  get(target, prop) {
+    return (getPool() as any)[prop];
+  }
 });
 
 // Helper para ejecutar queries con manejo de errores
