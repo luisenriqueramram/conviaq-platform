@@ -1,15 +1,19 @@
 // src/lib/evolution.ts
 import { db } from "@/lib/db";
 
+let BASE_URL: string | null = null;
+let API_KEY: string | null = null;
 
-
-const BASE_URL = (process.env.EVOLUTION_BASE_URL ?? "").trim().replace(/\/+$/, "");
-const API_KEY = (process.env.EVOLUTION_API_KEY ?? "").trim();
-
-
-
-if (!BASE_URL) throw new Error("EVOLUTION_BASE_URL is not set");
-if (!API_KEY) throw new Error("EVOLUTION_API_KEY is not set");
+function getConfig() {
+  if (BASE_URL === null || API_KEY === null) {
+    BASE_URL = (process.env.EVOLUTION_BASE_URL ?? "").trim().replace(/\/+$/, "");
+    API_KEY = (process.env.EVOLUTION_API_KEY ?? "").trim();
+    
+    if (!BASE_URL) throw new Error("EVOLUTION_BASE_URL is not set");
+    if (!API_KEY) throw new Error("EVOLUTION_API_KEY is not set");
+  }
+  return { BASE_URL, API_KEY };
+}
 
 export type ChannelAccount = {
   id: number;
@@ -31,6 +35,7 @@ function normalizePath(path: string) {
 }
 
 export async function evolutionFetch(path: string, init: RequestInit = {}) {
+  const { BASE_URL, API_KEY } = getConfig();
   const url = `${BASE_URL}${normalizePath(path)}`;
 
   const headers = new Headers(init.headers);
