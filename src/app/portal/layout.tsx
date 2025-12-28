@@ -20,6 +20,8 @@ import {
   Zap,
   GitBranch,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 
 type PortalLayoutProps = { children: React.ReactNode };
@@ -66,6 +68,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
   const [visibleNavItems, setVisibleNavItems] = useState(navItems);
   const [visibleSecondaryItems, setVisibleSecondaryItems] = useState(secondaryItems);
   const [customModules, setCustomModules] = useState<Array<{slug: string; name: string; icon?: string; route: string}>>([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // When true hides the Leads item for all users except plan 10 (full access)
   const hideLeadsGlobally = true;
   const searchRef = useRef<HTMLInputElement>(null);
@@ -263,14 +266,35 @@ useEffect(() => {
       </div>
 
       <div className="relative flex h-dvh w-full">
+        {/* MOBILE MENU BUTTON */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="fixed top-3 left-3 z-[60] lg:hidden p-2 rounded-xl bg-surface/90 backdrop-blur-md border border-border text-white hover:bg-surface transition-colors"
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
+
+        {/* MOBILE OVERLAY */}
+        {mobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 z-[55] lg:hidden backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
         {/* SIDEBAR */}
         <aside
           className={cn(
             "group/sidebar flex h-full flex-col overflow-hidden",
-            "w-[84px] hover:w-64",
+            // Desktop: hover to expand
+            "lg:w-[84px] lg:hover:w-64",
+            // Mobile: full width drawer from left
+            "w-72 fixed lg:relative inset-y-0 left-0 z-[56]",
             "bg-surface/60 backdrop-blur-xl border-r border-border",
-            "py-6 z-50 transition-all duration-500",
-            "ease-[cubic-bezier(0.2,0,0,1)]"
+            "py-6 transition-all duration-300 lg:duration-500",
+            "ease-[cubic-bezier(0.2,0,0,1)]",
+            mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           )}
         >
           {/* Brand */}
@@ -282,7 +306,8 @@ useEffect(() => {
             <div
               className={cn(
                 "ml-4 leading-tight",
-                "opacity-0 -translate-x-2 group-hover/sidebar:opacity-100 group-hover/sidebar:translate-x-0",
+                "opacity-100 translate-x-0 lg:opacity-0 lg:-translate-x-2",
+                "lg:group-hover/sidebar:opacity-100 lg:group-hover/sidebar:translate-x-0",
                 "transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] whitespace-nowrap"
               )}
             >
@@ -303,6 +328,7 @@ useEffect(() => {
                   label={it.label}
                   active={active}
                   icon={<Icon className="h-5 w-5" />}
+                  onClick={() => setMobileMenuOpen(false)}
                 />
               );
             })}
@@ -314,7 +340,7 @@ useEffect(() => {
                   className={cn(
                     "mt-4 pt-4 border-t border-border",
                     "text-[11px] uppercase tracking-wider text-zinc-500 px-3",
-                    "opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-300"
+                    "opacity-100 lg:opacity-0 lg:group-hover/sidebar:opacity-100 transition-opacity duration-300"
                   )}
                 >
                   Módulos Personalizados
@@ -329,6 +355,7 @@ useEffect(() => {
                       label={module.name}
                       active={active}
                       icon={<Zap className="h-5 w-5" />}
+                      onClick={() => setMobileMenuOpen(false)}
                     />
                   );
                 })}
@@ -339,7 +366,7 @@ useEffect(() => {
               className={cn(
                 "mt-4 pt-4 border-t border-border",
                 "text-[11px] uppercase tracking-wider text-zinc-500 px-3",
-                "opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-300"
+                "opacity-100 lg:opacity-0 lg:group-hover/sidebar:opacity-100 transition-opacity duration-300"
               )}
             >
               Configuración
@@ -355,6 +382,7 @@ useEffect(() => {
                   label={it.label}
                   active={active}
                   icon={<Icon className="h-5 w-5" />}
+                  onClick={() => setMobileMenuOpen(false)}
                 />
               );
             })}
@@ -399,9 +427,9 @@ useEffect(() => {
         <div className="flex min-w-0 flex-1 flex-col">
           {/* TOPBAR */}
           <header className="sticky top-0 z-40 h-14 border-b border-border bg-bg/40 backdrop-blur-xl">
-            <div className="h-full flex items-center justify-between px-6 md:px-8">
+            <div className="h-full flex items-center justify-between pl-16 pr-4 sm:px-6 lg:px-8">
               {/* Breadcrumb */}
-              <div className="flex items-center gap-2 text-sm text-zinc-500">
+              <div className="hidden sm:flex items-center gap-2 text-sm text-zinc-500">
                 <Home className="h-4 w-4 text-zinc-600" />
                 <ChevronRight className="h-4 w-4 text-zinc-700" />
                 <span className="text-white font-medium">{currentLabel}</span>
@@ -554,7 +582,7 @@ useEffect(() => {
           </header>
 
           {/* CONTENT */}
-          <main ref={contentRef} className="flex-1 min-w-0 overflow-y-auto px-6 md:px-8 pb-8 animate-fade-in">
+          <main ref={contentRef} className="flex-1 min-w-0 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-8 animate-fade-in">
             <div className="w-full">{children}</div>
           </main>
         </div>
@@ -568,15 +596,18 @@ function NavItem({
   label,
   active,
   icon,
+  onClick,
 }: {
   href: string;
   label: string;
   active?: boolean;
   icon: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={cn(
         "relative flex items-center h-11 px-3 rounded-xl overflow-hidden",
         "transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] hover-lift",
@@ -606,7 +637,8 @@ function NavItem({
       <span
         className={cn(
           "ml-4 relative z-10",
-          "opacity-0 -translate-x-2 group-hover/sidebar:opacity-100 group-hover/sidebar:translate-x-0",
+          "opacity-100 translate-x-0 lg:opacity-0 lg:-translate-x-2",
+          "lg:group-hover/sidebar:opacity-100 lg:group-hover/sidebar:translate-x-0",
           "transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] whitespace-nowrap"
         )}
       >
