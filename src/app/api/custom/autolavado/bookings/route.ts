@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { requireAutolavadoAccess } from "@/lib/server/autolavado-guard";
 import { queryAutolavado } from "@/lib/db-autolavado";
+import { handleAutolavadoError } from "@/lib/autolavado-error-handler";
 import type { Booking } from "@/types/autolavado";
 
 export async function GET(req: Request) {
