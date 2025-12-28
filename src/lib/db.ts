@@ -15,6 +15,7 @@ function getPool() {
     
     poolInstance = new Pool({
       connectionString: process.env.DATABASE_URL,
+      max: 3,
       connectionTimeoutMillis: 60000,
       idleTimeoutMillis: 60000,
       query_timeout: 60000,
