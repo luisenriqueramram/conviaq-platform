@@ -59,8 +59,7 @@ export async function GET(req: Request) {
     if (error.message === "AUTOLAVADO_ACCESS_DENIED" || error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
-    console.error("[Autolavado API] Get bookings error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleAutolavadoError(error, "Get bookings");
   }
 }
 

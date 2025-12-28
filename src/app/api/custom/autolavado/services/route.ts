@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { requireAutolavadoAccess } from "@/lib/server/autolavado-guard";
 import { queryAutolavado } from "@/lib/db-autolavado";
+import { handleAutolavadoError } from "@/lib/autolavado-error-handler";
 import type { Service } from "@/types/autolavado";
 
 export async function GET() {
@@ -21,8 +22,7 @@ export async function GET() {
     if (error.message === "AUTOLAVADO_ACCESS_DENIED" || error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
-    console.error("[Autolavado API] Get services error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleAutolavadoError(error, "Get services");
   }
 }
 
