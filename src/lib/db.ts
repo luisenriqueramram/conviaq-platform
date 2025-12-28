@@ -1,5 +1,9 @@
 // src/lib/db.ts
 import { Pool } from "pg";
+import dns from "dns";
+
+// Configurar DNS para preferir IPv4
+dns.setDefaultResultOrder('ipv4first');
 
 let poolInstance: Pool | null = null;
 

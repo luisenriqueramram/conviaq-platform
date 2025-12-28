@@ -19,11 +19,13 @@ ENV EVOLUTION_BASE_URL=$EVOLUTION_BASE_URL
 ENV EVOLUTION_API_KEY=$EVOLUTION_API_KEY
 ENV AUTOLAVADO_DB_URL=$AUTOLAVADO_DB_URL
 
-# Forzar Node.js a usar solo IPv4 (familia 4) para resolver DNS
+# Forzar Node.js a usar solo IPv4 y deshabilitar IPv6
 ENV NODE_OPTIONS="--dns-result-order=ipv4first"
+ENV UV_THREADPOOL_SIZE=128
 
 RUN npm run build
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Deshabilitar IPv6 completamente en runtime
+CMD ["sh", "-c", "NODE_OPTIONS='--dns-result-order=ipv4first' npm start"]
