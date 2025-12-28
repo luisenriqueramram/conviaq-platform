@@ -19,11 +19,12 @@ function getPool() {
     
     poolInstance = new Pool({
       connectionString: AUTOLAVADO_DB_URL,
-      max: 2,
-      connectionTimeoutMillis: 120000,
-      idleTimeoutMillis: 120000,
-      query_timeout: 120000,
-      statement_timeout: 120000,
+      max: 1,
+      min: 0,
+      connectionTimeoutMillis: 180000,
+      idleTimeoutMillis: 180000,
+      query_timeout: 180000,
+      statement_timeout: 180000,
     });
 
     poolInstance.on('connect', () => {
