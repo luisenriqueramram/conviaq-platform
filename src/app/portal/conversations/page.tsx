@@ -87,18 +87,6 @@ async function apiFetch(url: string, init: RequestInit = {}) {
   return { res, json };
 }
 
-function scrollToBottom(smooth: boolean = false) {
-  const el = messagesWrapRef.current;
-  const bottom = bottomRef.current;
-  if (!el || !bottom) return;
-
-  if (smooth) {
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  } else {
-    el.scrollTop = el.scrollHeight;
-  }
-}
-
 function timeLabel(dateISO: string) {
   const d = new Date(dateISO);
   const now = new Date();
