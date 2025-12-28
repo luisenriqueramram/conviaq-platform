@@ -14,5 +14,6 @@ export async function query<T = any>(
   text: string,
   params?: any[]
 ): Promise<{ rows: T[] }> {
-  return db.query(text, params);
+  const result = await db.query(text, params);
+  return result as { rows: T[] };
 }
