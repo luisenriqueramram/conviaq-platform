@@ -20,6 +20,16 @@ function getPool() {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 30000,
     });
+
+    // Resetear pool si hay error de circuit breaker
+    poolInstance.on('error', (err) => {
+      console.error('[Autolavado DB] Pool error:', err.message);
+      if (err.message?.includes('Circuit breaker')) {
+        console.log('[Autolavado DB] Resetting pool due to circuit breaker');
+        poolInstance?.end();
+        poolInstance = null;
+      }
+    });
   }
   return poolInstance;
 }
