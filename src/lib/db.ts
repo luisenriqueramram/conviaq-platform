@@ -8,8 +8,20 @@ function getPool() {
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL is not set");
     }
+    
+    // Modificar URL para usar IPv4.supabase.co en lugar de directo
+    let connectionString = process.env.DATABASE_URL;
+    
+    // Forzar IPv4 agregando parámetro a la URL de Supabase
+    if (connectionString.includes('supabase.co')) {
+      const url = new URL(connectionString.replace('postgresql://', 'http://'));
+      // Cambiar el hostname para forzar IPv4
+      connectionString = connectionString.replace(url.hostname, `ipv4.${url.hostname}`);
+    }
+    
     poolInstance = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString,
+      connectionTimeoutMillis: 10000,
     });
   }
   return poolInstance;
