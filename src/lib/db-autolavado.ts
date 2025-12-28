@@ -89,16 +89,7 @@ export async function queryAutolavado<T = any>(
       console.log(`[Autolavado DB] Waiting ${waitTime}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
       
-      // Si fue un error de pool, resetear
-      if (error.message?.includes('timeout') || error.message?.includes('Circuit breaker')) {
-        console.log('[Autolavado DB] Resetting pool before retry');
-        try {
-          await poolInstance?.end();
-        } catch (e) {
-          // Ignorar errores al cerrar
-        }
-        poolInstance = null;
-      }
+      // No cerrar el pool, solo esperar y reintentar
     }
   }
   
