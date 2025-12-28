@@ -16,7 +16,7 @@ export function MessageBubble({ msg }: { msg: ChatMessage }) {
       <div className="max-w-[78%] rounded-2xl border border-border bg-surface px-3 py-2">
         {msg.parts.map((p, i) => {
           if (p.type === "text" && 'text' in p) return <p key={i} className="whitespace-pre-wrap">{p.text}</p>
-          if (p.type === "image" && 'media' in p) return (
+          if (p.type === "image" && 'media' in p && p.media) return (
             <Image
               key={i}
               src={p.media.url}
@@ -27,12 +27,12 @@ export function MessageBubble({ msg }: { msg: ChatMessage }) {
               className="mt-2 rounded-xl object-contain h-auto w-[360px]"
             />
           )
-          if (p.type === "audio" && 'media' in p) return (
+          if (p.type === "audio" && 'media' in p && p.media) return (
             <audio key={i} controls className="mt-2 w-full">
               <source src={p.media.url} type={p.media.mime ?? undefined} />
             </audio>
           )
-          if (p.type === "file" && 'media' in p) return (
+          if (p.type === "file" && 'media' in p && p.media) return (
             <a key={i} href={p.media.url} target="_blank" rel="noreferrer" className="mt-2 block underline">
               Abrir archivo
             </a>
