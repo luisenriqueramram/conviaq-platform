@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import { EmptyState } from "@/components/portal/EmptyState";
 import { GlassPanel } from "@/components/portal/GlassPanel";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import { cn } from "@/lib/utils";
 
 const MOTIVATIONAL_PHRASES = [
@@ -167,7 +168,8 @@ export default function PortalDashboardPage() {
         if (mounted) setLoading(false);
       }
     };
-    load();
+    // Auto-load eliminado - usar botón de refresh manual
+    // load();
     return () => { mounted = false; };
   }, [rangeKey]);
 
@@ -226,13 +228,16 @@ export default function PortalDashboardPage() {
             </p>
           </div>
 
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400 dark:border-emerald-500/20 bg-emerald-100 dark:bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 dark:bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600 dark:bg-emerald-500"></span>
+          <div className="flex items-center gap-3">
+            <RefreshButton />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400 dark:border-emerald-500/20 bg-emerald-100 dark:bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 dark:bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600 dark:bg-emerald-500"></span>
+              </span>
+              Sistema en línea
             </span>
-            Sistema en línea
-          </span>
+          </div>
         </div>
 
         {/* KPI */}
