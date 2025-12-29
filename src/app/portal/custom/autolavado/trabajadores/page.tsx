@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, User } from "lucide-react";
+import { Plus, Edit, Trash2, User, X } from "lucide-react";
 import type { Worker } from "@/types/autolavado";
 
 export default function TrabajadoresPage() {
@@ -14,6 +14,12 @@ export default function TrabajadoresPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newWorkerName, setNewWorkerName] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Estado para modal de edición
+  const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPin, setEditPin] = useState("");
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     loadWorkers();
@@ -70,6 +76,58 @@ export default function TrabajadoresPage() {
       }
     } catch (error) {
       console.error("Error toggling worker:", error);
+    }
+  };
+
+  const handleOpenEdit = (worker: Worker) => {
+    setEditingWorker(worker);
+    setEditName(worker.name);
+    setEditPin(worker.pin || "");
+  };
+
+  const handleCloseEdit = () => {
+    setEditingWorker(null);
+    setEditName("");
+    setEditPin("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingWorker) return;
+    if (!editName.trim()) {
+      alert("El nombre no puede estar vacío");
+      return;
+    }
+    if (editPin.length !== 4 || !/^\d{4}$/.test(editPin)) {
+      alert("El PIN debe tener exactamente 4 dígitos");
+      return;
+    }
+    const digits = editPin.split("");
+    const uniqueDigits = new Set(digits);
+    if (uniqueDigits.size !== 4) {
+      alert("El PIN debe tener 4 dígitos diferentes (no puede ser 1111, 1212, etc.)");
+      return;
+    }
+
+    try {
+      setUpdating(true);
+      const res = await fetch(`/api/custom/autolavado/workers/${editingWorker.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName, pin: editPin }),
+      });
+
+      if (res.ok) {
+        handleCloseEdit();
+        loadWorkers();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Error al actualizar trabajador");
+      }
+    } catch (error) {
+      console.error("Error updating worker:", error);
+      alert("Error al actualizar trabajador");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -160,30 +218,34 @@ export default function TrabajadoresPage() {
                     key={worker.id}
                     className="flex items-center justify-between p-4 rounded-lg bg-zinc-800/30 border border-zinc-700/50 hover:bg-zinc-800/50 transition"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4 flex-1">
                       <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
                         <User className="w-5 h-5 text-blue-400" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <div className="font-medium text-white">{worker.name}</div>
                         <div className="text-xs text-zinc-500">ID: {worker.id}</div>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
                       <Badge 
                         variant={worker.is_active ? "default" : "secondary"}
                         className={worker.is_active ? "" : "bg-yellow-500/20 text-yellow-300 border-yellow-500/50"}
                       >
                         {worker.is_active ? "Activo" : "Inactivo"}
                       </Badge>
+                      <div className="text-zinc-400 font-mono text-sm">
+                        PIN: {worker.pin || "****"}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-zinc-700"
-                        onClick={() => handleToggleActive(worker.id, worker.is_active)}
+                        className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+                        onClick={() => handleOpenEdit(worker)}
                       >
-                        {worker.is_active ? "Desactivar" : "Activar"}
+                        <Edit className="w-4 h-4 mr-1" />
+                        Editar
                       </Button>
                       <Button
                         variant="outline"
@@ -200,6 +262,70 @@ export default function TrabajadoresPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Modal de Edición */}
+        {editingWorker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <Card className="w-full max-w-md bg-zinc-900 border-zinc-700">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-white">Editar Trabajador</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCloseEdit}
+                  className="text-zinc-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm text-zinc-400 mb-2 block">
+                    Nombre
+                  </label>
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Nombre del trabajador"
+                    className="bg-zinc-800 border-zinc-700 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-zinc-400 mb-2 block">
+                    PIN (4 dígitos únicos)
+                  </label>
+                  <Input
+                    value={editPin}
+                    onChange={(e) => setEditPin(e.target.value)}
+                    placeholder="1234"
+                    maxLength={4}
+                    className="bg-zinc-800 border-zinc-700 text-white font-mono"
+                  />
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Debe tener 4 dígitos diferentes (no puede ser 1111, 1212, etc.)
+                  </p>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleCloseEdit}
+                    className="flex-1 border-zinc-700"
+                    disabled={updating}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleSaveEdit}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    disabled={updating}
+                  >
+                    {updating ? "Guardando..." : "Guardar"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

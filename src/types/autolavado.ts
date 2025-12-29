@@ -78,6 +78,7 @@ export interface Worker {
   tenant_id: number;
   name: string;
   is_active: boolean;
+  pin: string;
   meta: Record<string, any>;
   created_at: string;
   updated_at: string;

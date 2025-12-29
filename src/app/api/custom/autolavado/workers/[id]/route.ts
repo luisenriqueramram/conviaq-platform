@@ -4,6 +4,26 @@ import { requireAutolavadoAdmin } from "@/lib/server/autolavado-guard";
 import { queryAutolavado } from "@/lib/db-autolavado";
 import type { Worker } from "@/types/autolavado";
 
+// Valida que el PIN tenga 4 dígitos únicos
+function validatePin(pin: string): { valid: boolean; error?: string } {
+  if (!pin || pin.length !== 4) {
+    return { valid: false, error: "El PIN debe tener exactamente 4 dígitos" };
+  }
+
+  if (!/^\d{4}$/.test(pin)) {
+    return { valid: false, error: "El PIN solo puede contener dígitos (0-9)" };
+  }
+
+  const digits = pin.split("");
+  const uniqueDigits = new Set(digits);
+  
+  if (uniqueDigits.size !== 4) {
+    return { valid: false, error: "El PIN debe tener 4 dígitos diferentes (no puede ser 1111, 1212, etc.)" };
+  }
+
+  return { valid: true };
+}
+
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { tenantId } = await requireAutolavadoAdmin();
@@ -21,6 +41,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (body.is_active !== undefined) {
       updates.push(`is_active = $${paramIndex++}`);
       values.push(body.is_active);
+    }
+    if (body.pin !== undefined) {
+      const validation = validatePin(body.pin);
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error }, { status: 400 });
+      }
+      updates.push(`pin = $${paramIndex++}`);
+      values.push(body.pin);
     }
 
     if (updates.length === 0) {
