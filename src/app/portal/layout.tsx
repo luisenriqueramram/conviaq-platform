@@ -69,6 +69,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
   const [visibleSecondaryItems, setVisibleSecondaryItems] = useState(secondaryItems);
   const [customModules, setCustomModules] = useState<Array<{slug: string; name: string; icon?: string; route: string}>>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoadingModules, setIsLoadingModules] = useState(true); // Nuevo estado
   // When true hides the Leads item for all users except plan 10 (full access)
   const hideLeadsGlobally = true;
   const searchRef = useRef<HTMLInputElement>(null);
@@ -208,9 +209,11 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
 
         setVisibleNavItems(filtered);
         setVisibleSecondaryItems(filteredSecondary);
+        setIsLoadingModules(false); // Marcar como cargado
       } catch (e) {
         setVisibleNavItems(navItems);
         setVisibleSecondaryItems(secondaryItems);
+        setIsLoadingModules(false); // Marcar como cargado incluso si hay error
       }
     })();
     return () => {
@@ -256,6 +259,21 @@ useEffect(() => {
     navItems.find((x) => isActivePath(pathname, x.href))?.label ??
     secondaryItems.find((x) => isActivePath(pathname, x.href))?.label ??
     "Portal";
+
+  // Mostrar loading screen mientras valida módulos
+  if (isLoadingModules) {
+    return (
+      <div className="min-h-dvh bg-bg text-text flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="relative w-16 h-16 mx-auto">
+            <div className="absolute inset-0 rounded-full border-4 border-accent/20"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-accent border-t-transparent animate-spin"></div>
+          </div>
+          <p className="text-sm text-textSecondary">Validando permisos...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-bg text-text selection:bg-accent selection:text-white">
