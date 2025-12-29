@@ -168,9 +168,66 @@ export default function PortalDashboardPage() {
         if (mounted) setLoading(false);
       }
     };
-    // Auto-load eliminado - usar botón de refresh manual
-    // load();
+    
+    // Cargar solo al montar el componente, no en cada cambio de rangeKey
+    if (mounted) {
+      load();
+    }
+    
     return () => { mounted = false; };
+  }, []); // Array vacío = solo una vez al montar
+
+  // Recargar cuando cambia el rango de fechas
+  useEffect(() => {
+    if (!loading) {
+      setLoading(true);
+      const timer = setTimeout(async () => {
+        let mounted = true;
+        try {
+          const end = new Date();
+          const sinceUntil = (() => {
+            const toIso = (d: Date) => d.toISOString().slice(0, 19) + 'Z';
+            if (rangeKey === 'last30') {
+              const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+              return { since: toIso(start), until: toIso(end), granularity: 'day' as const };
+            }
+            if (rangeKey === 'last2') {
+              const start = new Date(end.getTime() - 2 * 24 * 60 * 60 * 1000);
+              return { since: toIso(start), until: toIso(end), granularity: 'day' as const };
+            }
+            if (rangeKey === 'last24h') {
+              const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+              return { since: toIso(start), until: toIso(end), granularity: 'hour' as const };
+            }
+            const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+            return { since: toIso(start), until: toIso(end), granularity: 'day' as const };
+          })();
+
+          const qs = new URLSearchParams({
+            since: sinceUntil.since,
+            until: sinceUntil.until,
+            granularity: sinceUntil.granularity,
+          }).toString();
+
+          const [msgRes, convRes] = await Promise.all([
+            fetch(`/api/metrics/messages?${qs}`).then(r => r.ok ? r.json() : null),
+            fetch(`/api/metrics/conversations?${qs}`).then(r => r.ok ? r.json() : null),
+          ]);
+          
+          if (mounted) {
+            setMsgMetrics(msgRes?.data ?? null);
+            setConvMetrics(convRes?.data ?? null);
+          }
+        } catch (e) {
+          console.warn('Metrics fetch error', e);
+        } finally {
+          if (mounted) setLoading(false);
+        }
+        return () => { mounted = false; };
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
   }, [rangeKey]);
 
   const leadsCount = leads?.ok ? (leads.data?.count ?? leads.data?.length ?? 0) : undefined;
