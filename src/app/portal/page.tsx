@@ -187,8 +187,12 @@ export default function PortalDashboardPage() {
           const end = new Date();
           const sinceUntil = (() => {
             const toIso = (d: Date) => d.toISOString().slice(0, 19) + 'Z';
-            if (rangeKey === 'last30') {
+            if (rangeKey === 'month') {
               const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+              return { since: toIso(start), until: toIso(end), granularity: 'day' as const };
+            }
+            if (rangeKey === 'last3') {
+              const start = new Date(end.getTime() - 3 * 24 * 60 * 60 * 1000);
               return { since: toIso(start), until: toIso(end), granularity: 'day' as const };
             }
             if (rangeKey === 'last2') {
@@ -199,6 +203,7 @@ export default function PortalDashboardPage() {
               const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
               return { since: toIso(start), until: toIso(end), granularity: 'hour' as const };
             }
+            // default: week
             const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
             return { since: toIso(start), until: toIso(end), granularity: 'day' as const };
           })();
