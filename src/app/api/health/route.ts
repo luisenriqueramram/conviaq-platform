@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { dbAutolavado } from "@/lib/db-autolavado";
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 export const maxDuration = 10;
 
 export async function GET() {
