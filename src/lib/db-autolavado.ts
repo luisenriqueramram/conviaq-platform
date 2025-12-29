@@ -31,13 +31,13 @@ function getPool() {
     
     poolInstance = new Pool({
       connectionString: AUTOLAVADO_DB_URL,
-      max: 3, // Aumentar a 3 para evitar bloqueos
-      min: 0,
-      connectionTimeoutMillis: 30000, // Reducir a 30s
-      idleTimeoutMillis: 30000,
-      query_timeout: 30000, // Timeout por query
+      max: 5, // 5 conexiones para manejar múltiples queries simultáneos
+      min: 1, // Mantener 1 conexión siempre lista
+      connectionTimeoutMillis: 30000,
+      idleTimeoutMillis: 60000,
+      query_timeout: 30000,
       statement_timeout: 30000,
-      allowExitOnIdle: true, // Permitir cierre cuando no hay queries
+      allowExitOnIdle: true,
     });
 
     // Monitorear conexiones

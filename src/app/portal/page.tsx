@@ -143,21 +143,34 @@ export default function PortalDashboardPage() {
           granularity: sinceUntil.granularity,
         }).toString();
 
-        const [meRes, leadsRes, convosRes, pipesRes, msgRes, convRes, rtRes, waRes] = await Promise.all([
+        // Cargar en 3 oleadas para no saturar el pool
+        // Oleada 1: Info crítica del usuario (2 queries)
+        const [meRes, rtRes] = await Promise.all([
           fetch('/api/me').then(r => r.ok ? r.json() : null),
-          fetch('/api/leads').then(r => r.ok ? r.json() : null),
-          fetch(`/api/conversations?limit=50`).then(r => r.ok ? r.json() : null),
-          fetch('/api/pipelines').then(r => r.ok ? r.json() : null),
-          fetch(`/api/metrics/messages?${qs}`).then(r => r.ok ? r.json() : null),
-          fetch(`/api/metrics/conversations?${qs}`).then(r => r.ok ? r.json() : null),
           fetch('/api/tenant-runtime').then(r => r.ok ? r.json() : null),
-          fetch('/api/channels/whatsapp/status').then(r => r.ok ? r.json() : null),
         ]);
         if (!mounted) return;
         setMe(meRes);
-        setLeads(leadsRes);
+        setRuntimeState(rtRes?.data ?? null);
+
+        // Oleada 2: Datos principales (3 queries)
+        const [convosRes, leadsRes, pipesRes] = await Promise.all([
+          fetch(`/api/conversations?limit=50`).then(r => r.ok ? r.json() : null),
+          fetch('/api/leads').then(r => r.ok ? r.json() : null),
+          fetch('/api/pipelines').then(r => r.ok ? r.json() : null),
+        ]);
+        if (!mounted) return;
         setConvos(convosRes);
+        setLeads(leadsRes);
         setPipes(pipesRes);
+
+        // Oleada 3: Métricas y status (3 queries)
+        const [msgRes, convRes, waRes] = await Promise.all([
+          fetch(`/api/metrics/messages?${qs}`).then(r => r.ok ? r.json() : null),
+          fetch(`/api/metrics/conversations?${qs}`).then(r => r.ok ? r.json() : null),
+          fetch('/api/channels/whatsapp/status').then(r => r.ok ? r.json() : null),
+        ]);
+        if (!mounted) return;
         setMsgMetrics(msgRes?.data ?? null);
         setConvMetrics(convRes?.data ?? null);
         setRuntimeState(rtRes?.data ?? null);
