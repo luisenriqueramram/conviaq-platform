@@ -494,11 +494,28 @@ function ConversationsPageContent() {
   };
 
   return (
+    {/* Responsive conversations layout */}
     <div className="h-[calc(100vh-64px)] flex overflow-hidden">
-      {/* Left: lista */}
-      <aside className="w-[360px] border-r border-zinc-800 bg-zinc-950/40 h-full flex flex-col overflow-hidden">
+      {/* Mostrar solo la lista en mobile si no hay conversación seleccionada, o solo el chat si hay una seleccionada */}
+      <aside
+        className={
+          `border-r border-zinc-800 bg-zinc-950/40 h-full flex flex-col overflow-hidden transition-all duration-200
+          w-full max-w-full sm:w-[360px] sm:max-w-[360px]
+          ${selectedConversationId ? 'hidden sm:flex' : 'flex'}
+          fixed inset-0 z-20 sm:static sm:z-auto sm:relative`
+        }
+      >
         {/* header fijo */}
-        <div className="p-4 border-b border-zinc-800 shrink-0">
+        <div className="p-4 border-b border-zinc-800 shrink-0 flex items-center">
+          {/* Botón volver solo en mobile y solo si hay conversación seleccionada */}
+          {selectedConversationId && (
+            <button
+              className="sm:hidden mr-2 px-2 py-1 rounded bg-zinc-800 text-zinc-200 text-xs"
+              onClick={() => setSelectedConversationId(null)}
+            >
+              ← Volver
+            </button>
+          )}
           <div className="flex items-center justify-between mb-2">
             <div>
               <div className="text-sm font-semibold">Conversaciones</div>
@@ -599,7 +616,14 @@ function ConversationsPageContent() {
       </aside>
 
       {/* Right: chat */}
-      <section className="flex-1 flex flex-col bg-zinc-950/20">
+      <section
+        className={
+          `flex-1 flex flex-col bg-zinc-950/20 transition-all duration-200
+          w-full max-w-full
+          ${selectedConversationId ? 'flex' : 'hidden'}
+          sm:flex`
+        }
+      >
         {/* header */}
         <div className="h-14 px-5 border-b border-zinc-800 flex items-center justify-between">
           {selectedConversation ? (
