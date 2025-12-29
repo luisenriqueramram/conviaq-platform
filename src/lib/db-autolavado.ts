@@ -8,17 +8,15 @@ dns.setDefaultResultOrder('ipv4first');
 let poolInstance: Pool | null = null;
 let isCreatingPool = false;
 
-async function getPool() {
+function getPool() {
   // Si ya existe, retornar
   if (poolInstance) {
     return poolInstance;
   }
 
-  // Evitar race condition - esperar si otro request está creando el pool
+  // Evitar race condition - bloquear hasta que termine la creación
   if (isCreatingPool) {
-    console.log('[Autolavado DB] Waiting for pool creation...');
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return getPool(); // Reintentar
+    throw new Error('[Autolavado DB] Pool is being created, please retry');
   }
 
   isCreatingPool = true;
@@ -69,8 +67,7 @@ async function getPool() {
 
 export const dbAutolavado = new Proxy({} as Pool, {
   get(target, prop) {
-    const pool = getPool();
-    return (pool as any)[prop];
+    return (getPool() as any)[prop];
   }
 });
 
@@ -88,8 +85,7 @@ export async function queryAutolavado<T = any>(
     try {
       console.log(`[Autolavado DB] Attempt ${attempt}/${maxRetries}: Executing query`);
       
-      const pool = await getPool();
-      const result = await pool.query(text, params);
+      const result = await dbAutolavado.query(text, params);
       
       const duration = Date.now() - attemptStartTime;
       console.log(`[Autolavado DB] Query succeeded in ${duration}ms on attempt ${attempt}`);

@@ -8,17 +8,17 @@ dns.setDefaultResultOrder('ipv4first');
 let poolInstance: Pool | null = null;
 let isCreatingPool = false;
 
-async function getPool() {
+function getPool() {
   // Si ya existe, retornar
   if (poolInstance) {
     return poolInstance;
   }
 
-  // Evitar race condition - esperar si otro request está creando el pool
+  // Evitar race condition - bloquear hasta que termine la creación
   if (isCreatingPool) {
-    console.log('[CRM DB] Waiting for pool creation...');
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return getPool(); // Reintentar
+    // Si otro thread está creando, esperar a que termine
+    // En Node.js esto no debería pasar (single-threaded), pero por seguridad
+    throw new Error('[CRM DB] Pool is being created, please retry');
   }
 
   isCreatingPool = true;
@@ -67,8 +67,7 @@ async function getPool() {
 
 export const db = new Proxy({} as Pool, {
   get(target, prop) {
-    const pool = getPool();
-    return (pool as any)[prop];
+    return (getPool() as any)[prop];
   }
 });
 
