@@ -250,6 +250,14 @@ export default function TrabajadoresPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="border-zinc-700"
+                        onClick={() => handleToggleActive(worker.id, worker.is_active)}
+                      >
+                        {worker.is_active ? "Desactivar" : "Activar"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="border-red-500/50 text-red-400 hover:bg-red-500/10"
                         onClick={() => handleDelete(worker.id)}
                       >
