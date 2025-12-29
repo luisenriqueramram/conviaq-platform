@@ -2,10 +2,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { dbAutolavado } from "@/lib/db-autolavado";
+import { startWarmup } from "@/lib/db-warmup";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 10;
+
+// Iniciar warmup al cargar el módulo
+startWarmup();
 
 export async function GET() {
   const checks = {
