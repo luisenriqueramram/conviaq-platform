@@ -73,11 +73,34 @@ export const db = new Proxy({} as Pool, {
   }
 });
 
-// Helper para queries con tipos
+// Helper para queries con tipos y retry automático
 export async function query<T = any>(
   text: string,
   params?: any[]
 ): Promise<{ rows: T[] }> {
-  const result = await db.query(text, params);
-  return result as { rows: T[] };
+  const maxRetries = 5;
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await db.query(text, params);
+      if (attempt > 1) {
+        console.log(`[CRM DB] Query succeeded on attempt ${attempt}`);
+      }
+      return result as { rows: T[] };
+    } catch (error: any) {
+      lastError = error;
+      
+      if (attempt === maxRetries) {
+        console.error(`[CRM DB] Query failed after ${maxRetries} attempts:`, error.message);
+        break;
+      }
+
+      const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+      console.log(`[CRM DB] Query failed (attempt ${attempt}/${maxRetries}), retrying in ${waitTime}ms...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+
+  throw lastError;
 }
