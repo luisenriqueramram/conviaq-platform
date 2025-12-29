@@ -128,14 +128,7 @@ export default function WhatsAppConnectPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasInstance]);
 
-  // polling suave cuando está “connecting”
-  useEffect(() => {
-    if (!hasInstance) return;
-    if (status !== "CONNECTING") return;
-
-    const t = setInterval(refreshStatus, 2500);
-    return () => clearInterval(t);
-  }, [hasInstance, status]);
+  // Polling eliminado - usar botón de refresh manual
 
   // limpiar QR y modal cuando se conecta
   useEffect(() => {
@@ -205,12 +198,7 @@ export default function WhatsAppConnectPage() {
                       Escanear QR
                     </button>
                   )}
-                  <button
-                    onClick={refreshStatus}
-                    className="h-10 px-4 rounded-lg border border-zinc-700 bg-zinc-800/30 text-zinc-300 text-xs font-medium hover:bg-zinc-800/50"
-                  >
-                    Refrescar
-                  </button>
+                  <RefreshButton />
                 </div>
               </div>
 

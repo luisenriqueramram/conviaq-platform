@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
+import { RefreshButton } from '@/components/ui/refresh-button';
 
 type Conversation = {
   id: number | string;
@@ -336,52 +337,7 @@ function ConversationsPageContent() {
     loadFirst();
   }, [selectedConversationId]);
 
-  // 5) Refresh en background (cada 5s)
-  useEffect(() => {
-    if (!selectedConversationId) return;
-
-    const tick = async () => {
-      try {
-        const { res, json } = await apiFetch(
-          `/api/conversations/${selectedConversationId}/messages?limit=${limit}&offset=0`
-        );
-
-        if (res.status === 401) {
-          window.location.href = '/login';
-          return;
-        }
-
-        const incoming = sortAsc(pickMessages(json));
-
-        setMessages((prev) => {
-          const prevIds = new Set(prev.map((m) => String(m.id)));
-          const merged = [...prev];
-          for (const m of incoming) {
-            if (!prevIds.has(String(m.id))) merged.push(m);
-          }
-          merged.sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-          return merged;
-        });
-
-        const el = messagesWrapRef.current;
-        if (!el) return;
-
-        const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-
-        if (nearBottom || justSelectedRef.current || shouldAutoScrollRef.current) {
-          justSelectedRef.current = false;
-          requestAnimationFrame(() => scrollToBottom(false));
-        }
-      } catch {
-        // silencio
-      }
-    };
-
-    const interval = setInterval(tick, 5000);
-    return () => clearInterval(interval);
-  }, [selectedConversationId]);
+  // Polling eliminado - usar botón de refresh manual
 
   // 5.1) Autoscroll al abrir conversación o cuando llegan mensajes nuevos
   useEffect(() => {
@@ -543,8 +499,13 @@ function ConversationsPageContent() {
       <aside className="w-[360px] border-r border-zinc-800 bg-zinc-950/40 h-full flex flex-col overflow-hidden">
         {/* header fijo */}
         <div className="p-4 border-b border-zinc-800 shrink-0">
-          <div className="text-sm font-semibold">Conversaciones</div>
-          <div className="text-xs text-zinc-500">WhatsApp</div>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="text-sm font-semibold">Conversaciones</div>
+              <div className="text-xs text-zinc-500">WhatsApp</div>
+            </div>
+            <RefreshButton className="!px-2 !py-1.5 text-xs" />
+          </div>
 
           <input
             value={search}
