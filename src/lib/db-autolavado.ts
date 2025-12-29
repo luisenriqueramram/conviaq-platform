@@ -6,48 +6,71 @@ import dns from "dns";
 dns.setDefaultResultOrder('ipv4first');
 
 let poolInstance: Pool | null = null;
+let isCreatingPool = false;
 
-function getPool() {
-  if (!poolInstance) {
+async function getPool() {
+  // Si ya existe, retornar
+  if (poolInstance) {
+    return poolInstance;
+  }
+
+  // Evitar race condition - esperar si otro request está creando el pool
+  if (isCreatingPool) {
+    console.log('[Autolavado DB] Waiting for pool creation...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return getPool(); // Reintentar
+  }
+
+  isCreatingPool = true;
+  
+  try {
     const AUTOLAVADO_DB_URL = process.env.AUTOLAVADO_DB_URL;
     if (!AUTOLAVADO_DB_URL) {
       throw new Error("AUTOLAVADO_DB_URL is not set in environment variables");
     }
     
     console.log('[Autolavado DB] Creating new pool connection...');
-    const startTime = Date.now();
     
     poolInstance = new Pool({
       connectionString: AUTOLAVADO_DB_URL,
-      max: 1,
+      max: 3, // Aumentar a 3 para evitar bloqueos
       min: 0,
-      connectionTimeoutMillis: 180000,
-      idleTimeoutMillis: 180000,
-      query_timeout: 180000,
-      statement_timeout: 180000,
+      connectionTimeoutMillis: 30000, // Reducir a 30s
+      idleTimeoutMillis: 30000,
+      query_timeout: 30000, // Timeout por query
+      statement_timeout: 30000,
+      allowExitOnIdle: true, // Permitir cierre cuando no hay queries
     });
 
-    poolInstance.on('connect', () => {
-      const duration = Date.now() - startTime;
-      console.log(`[Autolavado DB] Pool connected successfully in ${duration}ms`);
+    // Monitorear conexiones
+    poolInstance.on('connect', (client) => {
+      console.log('[Autolavado DB] New client connected, total:', poolInstance?.totalCount);
     });
 
-    // Resetear pool si hay error de circuit breaker
-    poolInstance.on('error', (err) => {
+    poolInstance.on('acquire', (client) => {
+      console.log('[Autolavado DB] Client acquired, waiting:', poolInstance?.waitingCount);
+    });
+
+    poolInstance.on('remove', (client) => {
+      console.log('[Autolavado DB] Client removed, idle:', poolInstance?.idleCount);
+    });
+
+    poolInstance.on('error', (err, client) => {
       console.error('[Autolavado DB] Pool error:', err.message);
-      if (err.message?.includes('Circuit breaker')) {
-        console.log('[Autolavado DB] Resetting pool due to circuit breaker');
-        poolInstance?.end();
-        poolInstance = null;
-      }
+      // No resetear el pool aquí, dejar que se recupere solo
     });
+
+    console.log('[Autolavado DB] Pool created successfully');
+    return poolInstance;
+  } finally {
+    isCreatingPool = false;
   }
-  return poolInstance;
 }
 
 export const dbAutolavado = new Proxy({} as Pool, {
   get(target, prop) {
-    return (getPool() as any)[prop];
+    const pool = getPool();
+    return (pool as any)[prop];
   }
 });
 
@@ -60,39 +83,39 @@ export async function queryAutolavado<T = any>(
   let lastError: any;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const attemptStartTime = Date.now();
+    
     try {
       console.log(`[Autolavado DB] Attempt ${attempt}/${maxRetries}: Executing query`);
-      const startTime = Date.now();
       
-      const result = await dbAutolavado.query(text, params);
+      const pool = await getPool();
+      const result = await pool.query(text, params);
       
-      const duration = Date.now() - startTime;
-      console.log(`[Autolavado DB] Query succeeded in ${duration}ms`);
+      const duration = Date.now() - attemptStartTime;
+      console.log(`[Autolavado DB] Query succeeded in ${duration}ms on attempt ${attempt}`);
       
       return {
         rows: result.rows,
         rowCount: result.rowCount || 0,
       };
     } catch (error: any) {
+      const duration = Date.now() - attemptStartTime;
       lastError = error;
-      const duration = Date.now();
       console.error(`[Autolavado DB] Attempt ${attempt} failed after ${duration}ms:`, error.message);
       
-      // Si es el último intento, lanzar el error
+      // Si es el último intento, no esperar
       if (attempt === maxRetries) {
         console.error('[Autolavado DB] All retry attempts failed');
         break;
       }
       
-      // Esperar antes del siguiente intento (exponential backoff)
-      const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+      // Esperar con backoff exponencial: 500ms, 1s, 2s
+      const waitTime = Math.min(500 * Math.pow(2, attempt - 1), 2000);
       console.log(`[Autolavado DB] Waiting ${waitTime}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
-      
-      // No cerrar el pool, solo esperar y reintentar
     }
   }
-  
+
   console.error("[Autolavado DB] Final error:", lastError);
   throw lastError;
 }
