@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X, Check, AlertCircle, Wifi, WifiOff, QrCode, Settings, Copy, Eye, EyeOff } from "lucide-react";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 type ChannelAccount = {
   id: number;
