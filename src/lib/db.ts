@@ -32,13 +32,15 @@ function getPool() {
     
     poolInstance = new Pool({
       connectionString: process.env.DATABASE_URL,
-      max: 5, // 5 conexiones para manejar múltiples queries simultáneos
+      max: 5,
       min: 1, // Mantener 1 conexión siempre lista
       connectionTimeoutMillis: 30000,
-      idleTimeoutMillis: 60000, // 60s idle antes de cerrar
+      idleTimeoutMillis: 120000, // 2 minutos antes de cerrar idle
       query_timeout: 30000,
       statement_timeout: 30000,
-      allowExitOnIdle: true,
+      allowExitOnIdle: false, // NO cerrar el pool automáticamente
+      keepAlive: true, // Mantener conexiones vivas
+      keepAliveInitialDelayMillis: 10000,
     });
 
     // Monitorear conexiones

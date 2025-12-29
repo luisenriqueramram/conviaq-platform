@@ -31,13 +31,15 @@ function getPool() {
     
     poolInstance = new Pool({
       connectionString: AUTOLAVADO_DB_URL,
-      max: 5, // 5 conexiones para manejar múltiples queries simultáneos
+      max: 5,
       min: 1, // Mantener 1 conexión siempre lista
       connectionTimeoutMillis: 30000,
-      idleTimeoutMillis: 60000,
+      idleTimeoutMillis: 120000, // 2 minutos antes de cerrar idle
       query_timeout: 30000,
       statement_timeout: 30000,
-      allowExitOnIdle: true,
+      allowExitOnIdle: false, // NO cerrar el pool automáticamente
+      keepAlive: true, // Mantener conexiones vivas
+      keepAliveInitialDelayMillis: 10000, // Primer keep-alive a los 10s
     });
 
     // Monitorear conexiones
@@ -76,7 +78,7 @@ export async function queryAutolavado<T = any>(
   text: string,
   params?: any[]
 ): Promise<{ rows: T[]; rowCount: number }> {
-  const maxRetries = 3;
+  const maxRetries = 5; // Aumentar a 5 intentos
   let lastError: any;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -99,14 +101,19 @@ export async function queryAutolavado<T = any>(
       lastError = error;
       console.error(`[Autolavado DB] Attempt ${attempt} failed after ${duration}ms:`, error.message);
       
+      // Si es timeout o connection error, el pool intentará reconectar automáticamente
+      if (error.message?.includes('timeout') || error.message?.includes('connect')) {
+        console.log('[Autolavado DB] Connection issue detected, pool will retry with new connection');
+      }
+      
       // Si es el último intento, no esperar
       if (attempt === maxRetries) {
         console.error('[Autolavado DB] All retry attempts failed');
         break;
       }
       
-      // Esperar con backoff exponencial: 500ms, 1s, 2s
-      const waitTime = Math.min(500 * Math.pow(2, attempt - 1), 2000);
+      // Esperar con backoff exponencial: 1s, 2s, 4s, 8s, 10s
+      const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
       console.log(`[Autolavado DB] Waiting ${waitTime}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
