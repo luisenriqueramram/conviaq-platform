@@ -494,9 +494,8 @@ function ConversationsPageContent() {
   };
 
   return (
-    {/* Responsive conversations layout */}
     <div className="h-[calc(100vh-64px)] flex overflow-hidden">
-      {/* Mostrar solo la lista en mobile si no hay conversación seleccionada, o solo el chat si hay una seleccionada */}
+      {/* Responsive conversations layout: Mostrar solo la lista en mobile si no hay conversación seleccionada, o solo el chat si hay una seleccionada */}
       <aside
         className={
           `border-r border-zinc-800 bg-zinc-950/40 h-full flex flex-col overflow-hidden transition-all duration-200
