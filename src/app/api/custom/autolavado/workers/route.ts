@@ -1,4 +1,5 @@
 // src/app/api/custom/autolavado/workers/route.ts
+import "@/app/api/_init";
 import { NextResponse } from "next/server";
 import { requireAutolavadoAdmin } from "@/lib/server/autolavado-guard";
 import { queryAutolavado } from "@/lib/db-autolavado";import { handleAutolavadoError } from "@/lib/autolavado-error-handler";import type { Worker } from "@/types/autolavado";
