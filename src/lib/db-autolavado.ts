@@ -57,7 +57,16 @@ function getPool() {
 
     poolInstance.on('error', (err, client) => {
       console.error('[Autolavado DB] Pool error:', err.message);
-      // No resetear el pool aquí, dejar que se recupere solo
+      // Si el error es crítico, destruir el pool y forzar recreación en el siguiente uso
+      if (err.message?.includes('timeout') || err.message?.includes('connect') || err.message?.includes('ECONNRESET') || err.message?.includes('Connection terminated')) {
+        console.warn('[Autolavado DB] Reiniciando pool por error crítico...');
+        try {
+          poolInstance?.end();
+        } catch (e) {
+          console.error('[Autolavado DB] Error al cerrar pool:', e?.message);
+        }
+        poolInstance = null;
+      }
     });
 
     console.log('[Autolavado DB] Pool created successfully');
@@ -101,9 +110,15 @@ export async function queryAutolavado<T = any>(
       lastError = error;
       console.error(`[Autolavado DB] Attempt ${attempt} failed after ${duration}ms:`, error.message);
       
-      // Si es timeout o connection error, el pool intentará reconectar automáticamente
-      if (error.message?.includes('timeout') || error.message?.includes('connect')) {
-        console.log('[Autolavado DB] Connection issue detected, pool will retry with new connection');
+      // Si es timeout o connection error, reiniciar el pool para forzar reconexión limpia
+      if (error.message?.includes('timeout') || error.message?.includes('connect') || error.message?.includes('ECONNRESET') || error.message?.includes('Connection terminated')) {
+        console.log('[Autolavado DB] Connection issue detected, pool will be reset and retried');
+        try {
+          poolInstance?.end();
+        } catch (e) {
+          console.error('[Autolavado DB] Error al cerrar pool:', e?.message);
+        }
+        poolInstance = null;
       }
       
       // Si es el último intento, no esperar
