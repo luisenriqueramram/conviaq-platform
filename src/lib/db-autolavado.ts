@@ -63,7 +63,7 @@ function getPool() {
         try {
           poolInstance?.end();
         } catch (e) {
-          console.error('[Autolavado DB] Error al cerrar pool:', e?.message);
+          console.error('[Autolavado DB] Error al cerrar pool:', (e as any)?.message || e);
         }
         poolInstance = null;
       }
@@ -116,7 +116,7 @@ export async function queryAutolavado<T = any>(
         try {
           poolInstance?.end();
         } catch (e) {
-          console.error('[Autolavado DB] Error al cerrar pool:', e?.message);
+          console.error('[Autolavado DB] Error al cerrar pool:', (e as any)?.message || e);
         }
         poolInstance = null;
       }
