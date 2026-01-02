@@ -14,13 +14,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "worker_id, start_at y end_at son requeridos" }, { status: 400 });
     }
 
-    // Insertar asignación
+    // Insertar asignación (incluyendo tenant_id)
     const insertQuery = `
-      INSERT INTO booking_worker_assignments (booking_id, worker_id, start_at, end_at, created_at)
-      VALUES ($1, $2, $3, $4, NOW())
+      INSERT INTO booking_worker_assignments (booking_id, worker_id, start_at, end_at, tenant_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, NOW())
       RETURNING *
     `;
-    const { rows } = await queryAutolavado(insertQuery, [booking_id, worker_id, start_at, end_at]);
+    const { rows } = await queryAutolavado(insertQuery, [booking_id, worker_id, start_at, end_at, tenantId]);
 
     return NextResponse.json({ ok: true, data: rows[0] });
   } catch (error: any) {

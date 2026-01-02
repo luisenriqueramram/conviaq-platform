@@ -404,7 +404,7 @@ export default function EditarCitaPage() {
                   {assignedWorkers.map((aw: any, i: number) => (
                     <li key={i} className="flex items-center gap-2 text-zinc-200 text-xs">
                       <User className="w-4 h-4 text-blue-400" />
-                      <span>ID: {aw.worker_id}</span>
+                      <span>{aw.worker_name || 'Sin nombre'} (PIN: {aw.worker_pin || '****'})</span>
                       <span className="ml-2">{aw.start_at?.slice(0,16).replace('T',' ')} - {aw.end_at?.slice(11,16)}</span>
                     </li>
                   ))}

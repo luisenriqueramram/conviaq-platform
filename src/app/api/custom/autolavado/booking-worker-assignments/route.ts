@@ -12,11 +12,13 @@ export async function GET(req: Request) {
     if (!booking_id) {
       return NextResponse.json({ error: "booking_id es requerido" }, { status: 400 });
     }
-    // Buscar asignaciones de trabajadores para esta cita
+    // Buscar asignaciones de trabajadores para esta cita, incluyendo nombre y PIN
     const query = `
-      SELECT * FROM booking_worker_assignments
-      WHERE booking_id = $1 AND tenant_id = $2
-      ORDER BY start_at
+      SELECT bwa.*, w.name as worker_name, w.pin as worker_pin
+      FROM booking_worker_assignments bwa
+      JOIN workers w ON bwa.worker_id = w.id AND bwa.tenant_id = w.tenant_id
+      WHERE bwa.booking_id = $1 AND bwa.tenant_id = $2
+      ORDER BY bwa.start_at
     `;
     const { rows } = await queryAutolavado(query, [booking_id, tenantId]);
     return NextResponse.json({ ok: true, assignments: rows });
