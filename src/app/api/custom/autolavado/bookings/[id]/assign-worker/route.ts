@@ -4,11 +4,11 @@ import { queryAutolavado } from "@/lib/db-autolavado";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await requireSession();
-    const { id: booking_id } = params;
+    const { id: booking_id } = await params;
     const body = await req.json();
     const { worker_id, start_at, end_at } = body;
 
