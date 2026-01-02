@@ -1,14 +1,14 @@
 // src/app/api/custom/autolavado/bookings/[id]/route.ts
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { requireSession } from "@/lib/server/session";
 import { queryAutolavado } from "@/lib/db-autolavado";
 import type { Booking } from "@/types/autolavado";
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
     const tenantId = session.tenantId;
-    const { id } = await params;
+    const { id } = params;
 
     console.log("[GET booking] ID:", id, "tenantId:", tenantId);
 
@@ -28,11 +28,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
     const tenantId = session.tenantId;
-    const { id } = await params;
+    const { id } = params;
     const body = await req.json();
 
     const updates: string[] = [];
@@ -125,10 +125,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
-    const { id } = await params;
+    const { id } = params;
 
     const query = `DELETE FROM bookings WHERE id = $1 RETURNING id`;
     const { rows } = await queryAutolavado(query, [id]);
