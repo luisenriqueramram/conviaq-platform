@@ -17,11 +17,11 @@ export async function GET(req: Request) {
     // Buscar asignaciones que se crucen con el horario
     const query = `
       SELECT * FROM booking_worker_assignments
-      WHERE worker_id = $1 AND tenant_id = $2
-        AND NOT (end_at <= $3 OR start_at >= $4)
+      WHERE worker_id = $1
+        AND NOT (end_at <= $2 OR start_at >= $3)
       ORDER BY start_at
     `;
-    const { rows } = await queryAutolavado(query, [worker_id, tenantId, start_at, end_at]);
+    const { rows } = await queryAutolavado(query, [worker_id, start_at, end_at]);
     return NextResponse.json({ ok: true, conflicts: rows });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
