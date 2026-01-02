@@ -80,7 +80,8 @@ export default function EditarCitaPage() {
       const res = await fetch(`/api/custom/autolavado/booking-worker-assignments?booking_id=${bookingIdToLoad || bookingId}`);
       if (res.ok) {
         const data = await res.json();
-        setAssignedWorkers(data.rows || data || []);
+        // Usar correctamente el campo assignments
+        setAssignedWorkers(Array.isArray(data.assignments) ? data.assignments : []);
       } else {
         setAssignedWorkers([]);
       }
@@ -181,7 +182,9 @@ export default function EditarCitaPage() {
   // Cargar datos de la cita y trabajadores asignados al cargar bookingId
   useEffect(() => {
     loadData();
+    // No bloquear la carga de la cita si falla la consulta de asignados
     loadAssignedWorkers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId]);
 
   const loadData = async () => {
@@ -227,8 +230,8 @@ export default function EditarCitaPage() {
           end_time: endDate.toTimeString().slice(0, 5),
           notes: data.notes || "",
         });
-        // Refrescar trabajadores asignados al cargar booking
-        await loadAssignedWorkers(data.id);
+        // No await aquí para no bloquear la carga de la cita
+        loadAssignedWorkers(data.id);
       } else {
         const errorData = await bookingRes.json();
         console.error("Failed to load booking:", errorData);
