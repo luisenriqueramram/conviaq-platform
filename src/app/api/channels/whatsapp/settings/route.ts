@@ -76,7 +76,12 @@ export async function PATCH(req: Request) {
     const evolutionPayload: Record<string, any> = {};
     // Provide explicit defaults expected by some Evolution deployments
     evolutionPayload.rejectCall = typeof settingsOnly.reject_calls !== "undefined" ? settingsOnly.reject_calls : false;
-    evolutionPayload.msgCall = typeof settingsOnly.reject_calls_message !== "undefined" ? settingsOnly.reject_calls_message : "";
+    // Si rejectCall es false, el mensaje debe ir vacío SIEMPRE
+    if (evolutionPayload.rejectCall === false) {
+      evolutionPayload.msgCall = "";
+    } else {
+      evolutionPayload.msgCall = typeof settingsOnly.reject_calls_message !== "undefined" ? settingsOnly.reject_calls_message : "";
+    }
     evolutionPayload.groupsIgnore = true; // Always true as per requirement
     evolutionPayload.alwaysOnline = typeof settingsOnly.always_online !== "undefined" ? settingsOnly.always_online : false;
     evolutionPayload.readMessages = false; // Always false as per requirement

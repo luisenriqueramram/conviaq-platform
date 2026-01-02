@@ -1,11 +1,12 @@
-"use client";
 
+"use client";
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Edit, ArrowLeft, AlertCircle, CheckCircle, Clock, Loader2, Ban, Check, CheckCheck } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Edit, ArrowLeft, AlertCircle, CheckCircle, Clock, Loader2, Ban, Check, CheckCheck, User, AlertTriangle } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
+import type { Worker } from "@/types/autolavado";
 
 type Zone = {
   id: number;
@@ -38,6 +39,7 @@ type Booking = {
 };
 
 export default function EditarCitaPage() {
+  console.log("[DEBUG] Renderizando EditarCitaPage - archivo correcto");
   const router = useRouter();
   const params = useParams();
   const bookingId = params.id as string;
@@ -59,6 +61,98 @@ export default function EditarCitaPage() {
     end_time: "",
     notes: "",
   });
+  // Worker assignment modal state
+  const [showAssignWorker, setShowAssignWorker] = useState(false);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [selectedWorkerId, setSelectedWorkerId] = useState<number|null>(null);
+  const [assigning, setAssigning] = useState(false);
+  const [conflictWarning, setConflictWarning] = useState<string>("");
+  const [assignSuccess, setAssignSuccess] = useState(false);
+  // Estados para mostrar trabajadores asignados
+  const [assignedWorkers, setAssignedWorkers] = useState<any[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+    // --- Worker assignment modal logic (must be after booking is loaded) ---
+    // These must be inside the component and only used when booking is defined
+    const loadWorkers = async () => {
+      try {
+        const res = await fetch("/api/custom/autolavado/workers");
+        if (res.ok) {
+          const data = await res.json();
+          setWorkers(data);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    const checkWorkerConflict = async (workerId: number) => {
+      if (!booking) return;
+      try {
+        const res = await fetch(`/api/custom/autolavado/worker-assignments?worker_id=${workerId}&start_at=${booking.start_at}&end_at=${booking.end_at}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.conflicts && data.conflicts.length > 0) {
+            setConflictWarning("Este trabajador ya tiene una asignación en este horario. Puedes asignarlo de todas formas.");
+          } else {
+            setConflictWarning("");
+          }
+        }
+      } catch (err) {
+        setConflictWarning("");
+      }
+    };
+
+    const openAssignWorkerModal = () => {
+      setShowAssignWorker(true);
+      setAssignSuccess(false);
+      setSelectedWorkerId(null);
+      setConflictWarning("");
+      loadWorkers();
+    };
+
+    const closeAssignWorkerModal = () => {
+      setShowAssignWorker(false);
+      setSelectedWorkerId(null);
+      setConflictWarning("");
+      setAssignSuccess(false);
+    };
+
+    const handleWorkerSelect = (workerId: number) => {
+      setSelectedWorkerId(workerId);
+      if (workerId && booking) {
+        checkWorkerConflict(workerId);
+      }
+    };
+
+    const handleAssignWorker = async () => {
+      if (!selectedWorkerId || !booking) return;
+      setAssigning(true);
+      setAssignSuccess(false);
+      try {
+        const res = await fetch(`/api/custom/autolavado/bookings/${booking.id}/assign-worker`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            worker_id: selectedWorkerId,
+            start_at: booking.start_at,
+            end_at: booking.end_at,
+          }),
+        });
+        if (res.ok) {
+          setAssignSuccess(true);
+          setTimeout(() => {
+            closeAssignWorkerModal();
+          }, 1200);
+        } else {
+          const data = await res.json();
+          setConflictWarning(data.error || "Error al asignar trabajador");
+        }
+      } catch (err) {
+        setConflictWarning("Error al asignar trabajador");
+      } finally {
+        setAssigning(false);
+      }
+    };
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -285,6 +379,7 @@ export default function EditarCitaPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-950 p-6">
+      <div style={{background: 'yellow', color: 'black', padding: 8, fontWeight: 'bold'}}>DEBUG: Este es el archivo correcto de EditarCitaPage</div>
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -298,8 +393,79 @@ export default function EditarCitaPage() {
           <div>
             <h1 className="text-3xl font-bold text-white">Editar Cita</h1>
             <p className="text-zinc-400 mt-1">Modifica los datos de la cita</p>
+            {/* Assigned workers display */}
+            <div className="mt-2">
+              <div className="text-sm text-zinc-300 font-semibold mb-1">Trabajadores asignados:</div>
+              {loadingAssignments ? (
+                <div className="text-zinc-400 text-xs">Cargando...</div>
+              ) : assignedWorkers.length === 0 ? (
+                <div className="text-zinc-500 text-xs">Ningún trabajador asignado</div>
+              ) : (
+                <ul className="space-y-1">
+                  {assignedWorkers.map((aw: any, i: number) => (
+                    <li key={i} className="flex items-center gap-2 text-zinc-200 text-xs">
+                      <User className="w-4 h-4 text-blue-400" />
+                      <span>ID: {aw.worker_id}</span>
+                      <span className="ml-2">{aw.start_at?.slice(0,16).replace('T',' ')} - {aw.end_at?.slice(11,16)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {/* End assigned workers display */}
+            <Button
+              className="mt-2 bg-blue-600 hover:bg-blue-700"
+              onClick={openAssignWorkerModal}
+            >
+              <User className="w-4 h-4 mr-2" />
+              Asignar trabajador
+            </Button>
           </div>
         </div>
+      {/* Modal Asignar Trabajador */}
+      {showAssignWorker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <User className="w-5 h-5" /> Asignar trabajador
+            </h2>
+            <div className="space-y-2">
+              {workers.length === 0 ? (
+                <div className="text-zinc-400">No hay trabajadores disponibles</div>
+              ) : (
+                <select
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-white mb-2"
+                  value={selectedWorkerId || ""}
+                  onChange={e => handleWorkerSelect(Number(e.target.value))}
+                >
+                  <option value="">Selecciona un trabajador</option>
+                  {workers.map(w => (
+                    <option key={w.id} value={w.id}>{w.name} (PIN: {w.pin || "****"})</option>
+                  ))}
+                </select>
+              )}
+              {conflictWarning && (
+                <div className="flex items-center gap-2 text-yellow-400 bg-yellow-900/20 border border-yellow-700/40 rounded p-2 text-sm">
+                  <AlertTriangle className="w-4 h-4" />
+                  {conflictWarning}
+                </div>
+              )}
+              {assignSuccess && (
+                <div className="flex items-center gap-2 text-green-400 bg-green-900/20 border border-green-700/40 rounded p-2 text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  ¡Trabajador asignado!
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" onClick={closeAssignWorkerModal} className="flex-1 border-zinc-700" disabled={assigning}>Cancelar</Button>
+              <Button onClick={handleAssignWorker} className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={assigning || !selectedWorkerId}>
+                {assigning ? "Asignando..." : "Asignar"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Customer Info */}
