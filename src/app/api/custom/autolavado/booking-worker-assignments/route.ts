@@ -16,11 +16,11 @@ export async function GET(req: Request) {
     const query = `
       SELECT bwa.*, w.name as worker_name, w.pin as worker_pin
       FROM booking_worker_assignments bwa
-      JOIN workers w ON bwa.worker_id = w.id AND bwa.tenant_id = w.tenant_id
-      WHERE bwa.booking_id = $1 AND bwa.tenant_id = $2
+      JOIN workers w ON bwa.worker_id = w.id
+      WHERE bwa.booking_id = $1
       ORDER BY bwa.start_at
     `;
-    const { rows } = await queryAutolavado(query, [booking_id, tenantId]);
+    const { rows } = await queryAutolavado(query, [booking_id]);
     return NextResponse.json({ ok: true, assignments: rows });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
