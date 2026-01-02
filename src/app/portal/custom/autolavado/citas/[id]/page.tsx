@@ -71,6 +71,25 @@ export default function EditarCitaPage() {
   // Estados para mostrar trabajadores asignados
   const [assignedWorkers, setAssignedWorkers] = useState<any[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+
+  // Función para cargar los trabajadores asignados a la cita
+  const loadAssignedWorkers = async (bookingIdToLoad?: string) => {
+    if (!bookingId && !bookingIdToLoad) return;
+    setLoadingAssignments(true);
+    try {
+      const res = await fetch(`/api/custom/autolavado/booking-worker-assignments?booking_id=${bookingIdToLoad || bookingId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAssignedWorkers(data.rows || data || []);
+      } else {
+        setAssignedWorkers([]);
+      }
+    } catch (err) {
+      setAssignedWorkers([]);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
     // --- Worker assignment modal logic (must be after booking is loaded) ---
     // These must be inside the component and only used when booking is defined
     const loadWorkers = async () => {
@@ -140,6 +159,8 @@ export default function EditarCitaPage() {
         });
         if (res.ok) {
           setAssignSuccess(true);
+          // Refrescar lista de trabajadores asignados después de asignar
+          await loadAssignedWorkers(booking.id);
           setTimeout(() => {
             closeAssignWorkerModal();
           }, 1200);
@@ -156,15 +177,17 @@ export default function EditarCitaPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+
+  // Cargar datos de la cita y trabajadores asignados al cargar bookingId
   useEffect(() => {
     loadData();
+    loadAssignedWorkers();
   }, [bookingId]);
 
   const loadData = async () => {
     setLoading(true);
     try {
       console.log("Loading booking with ID:", bookingId);
-      
       // Cargar zonas y servicios
       const [zonesRes, servicesRes, bookingRes] = await Promise.all([
         fetch("/api/custom/autolavado/zones"),
@@ -189,11 +212,9 @@ export default function EditarCitaPage() {
         console.log("Booking data:", result);
         const data = result.data || result; // Puede venir como { data: ... } o directo
         setBooking(data);
-        
         // Parsear fechas
         const startDate = new Date(data.start_at);
         const endDate = new Date(data.end_at);
-        
         setFormData({
           customer_name: data.customer_name || "",
           customer_phone: data.customer_phone || "",
@@ -206,14 +227,18 @@ export default function EditarCitaPage() {
           end_time: endDate.toTimeString().slice(0, 5),
           notes: data.notes || "",
         });
+        // Refrescar trabajadores asignados al cargar booking
+        await loadAssignedWorkers(data.id);
       } else {
         const errorData = await bookingRes.json();
         console.error("Failed to load booking:", errorData);
         setError("No se pudo cargar la cita");
+        setAssignedWorkers([]);
       }
     } catch (error) {
       console.error("Error loading data:", error);
       setError("Error al cargar datos");
+      setAssignedWorkers([]);
     } finally {
       setLoading(false);
     }
