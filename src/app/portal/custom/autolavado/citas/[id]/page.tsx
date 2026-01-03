@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Edit, ArrowLeft, AlertCircle, CheckCircle, Clock, Loader2, Ban, Check, CheckCheck, User, AlertTriangle } from "lucide-react";
+import { Edit, ArrowLeft, AlertCircle, CheckCircle, Clock, Loader2, Ban, Check, CheckCheck, User, AlertTriangle, Trash2 } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
 import type { Worker } from "@/types/autolavado";
 
@@ -38,6 +38,15 @@ type Booking = {
   notes: string;
 };
 
+type WorkerAssignment = {
+  id: string;
+  worker_id: number;
+  worker_name: string | null;
+  worker_pin: string | null;
+  start_at: string;
+  end_at: string;
+};
+
 export default function EditarCitaPage() {
   console.log("[DEBUG] Renderizando EditarCitaPage - archivo correcto");
   const router = useRouter();
@@ -69,13 +78,16 @@ export default function EditarCitaPage() {
   const [conflictWarning, setConflictWarning] = useState<string>("");
   const [assignSuccess, setAssignSuccess] = useState(false);
   // Estados para mostrar trabajadores asignados
-  const [assignedWorkers, setAssignedWorkers] = useState<any[]>([]);
+  const [assignedWorkers, setAssignedWorkers] = useState<WorkerAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [assignmentError, setAssignmentError] = useState("");
+  const [removingAssignmentId, setRemovingAssignmentId] = useState<string | null>(null);
 
   // Función para cargar los trabajadores asignados a la cita
   const loadAssignedWorkers = async (bookingIdToLoad?: string) => {
     if (!bookingId && !bookingIdToLoad) return;
     setLoadingAssignments(true);
+    setAssignmentError("");
     try {
       const res = await fetch(`/api/custom/autolavado/booking-worker-assignments?booking_id=${bookingIdToLoad || bookingId}`);
       if (res.ok) {
@@ -84,9 +96,11 @@ export default function EditarCitaPage() {
         setAssignedWorkers(Array.isArray(data.assignments) ? data.assignments : []);
       } else {
         setAssignedWorkers([]);
+        setAssignmentError("No se pudieron cargar las asignaciones");
       }
     } catch (err) {
       setAssignedWorkers([]);
+      setAssignmentError("Error al cargar las asignaciones");
     } finally {
       setLoadingAssignments(false);
     }
@@ -173,6 +187,28 @@ export default function EditarCitaPage() {
         setConflictWarning("Error al asignar trabajador");
       } finally {
         setAssigning(false);
+      }
+    };
+  
+    const handleRemoveAssignment = async (assignmentId: string) => {
+      if (!assignmentId) return;
+      if (!confirm("¿Quitar esta asignación?")) return;
+      setRemovingAssignmentId(assignmentId);
+      setAssignmentError("");
+      try {
+        const res = await fetch(`/api/custom/autolavado/booking-worker-assignments/${assignmentId}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          await loadAssignedWorkers(booking?.id || bookingId);
+        } else {
+          const data = await res.json();
+          setAssignmentError(data.error || "No se pudo eliminar la asignación");
+        }
+      } catch (error) {
+        setAssignmentError("Error al eliminar la asignación");
+      } finally {
+        setRemovingAssignmentId(null);
       }
     };
   const [error, setError] = useState("");
@@ -429,14 +465,39 @@ export default function EditarCitaPage() {
                 <div className="text-zinc-500 text-xs">Ningún trabajador asignado</div>
               ) : (
                 <ul className="space-y-1">
-                  {assignedWorkers.map((aw: any, i: number) => (
-                    <li key={i} className="flex items-center gap-2 text-zinc-200 text-xs">
+                  {assignedWorkers.map((aw) => (
+                    <li key={aw.id} className="flex items-center gap-2 text-zinc-200 text-xs">
                       <User className="w-4 h-4 text-blue-400" />
-                      <span>{aw.worker_name || 'Sin nombre'} (PIN: {aw.worker_pin || '****'})</span>
-                      <span className="ml-2">{aw.start_at?.slice(0,16).replace('T',' ')} - {aw.end_at?.slice(11,16)}</span>
+                      <span>{aw.worker_name || "Sin nombre"} (PIN: {aw.worker_pin || "****"})</span>
+                      <span className="ml-2">
+                        {aw.start_at?.slice(0, 16).replace("T", " ")} - {aw.end_at?.slice(11, 16)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        onClick={() => handleRemoveAssignment(aw.id)}
+                        disabled={removingAssignmentId === aw.id}
+                      >
+                        {removingAssignmentId === aw.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <span className="flex items-center">
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Quitar
+                          </span>
+                        )}
+                      </Button>
                     </li>
                   ))}
                 </ul>
+              )}
+              {assignmentError && (
+                <div className="mt-2 text-xs text-red-400 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {assignmentError}
+                </div>
               )}
             </div>
             {/* End assigned workers display */}
