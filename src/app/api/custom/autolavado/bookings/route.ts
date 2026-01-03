@@ -71,6 +71,8 @@ export async function POST(req: Request) {
 
     const {
       service_id,
+      vehicle_size = null,
+      vehicle_count = 1,
       status = "confirmed",
       start_at,
       end_at,
@@ -93,14 +95,14 @@ export async function POST(req: Request) {
 
     const query = `
       INSERT INTO bookings (
-        tenant_id, service_id, status, start_at, end_at, timezone,
+        tenant_id, service_id, vehicle_size, vehicle_count, status, start_at, end_at, timezone,
         workers_assigned, customer_name, customer_phone, location_type,
         address_text, maps_link, lat, lng, zone_id,
         total_duration_min, total_price_mxn, travel_time_min, travel_included,
         notes, crm_ref, created_at, updated_at
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-        $16, $17, $18, $19, $20, '{}', NOW(), NOW()
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+        $17, $18, $19, $20, $21, $22, '{}', NOW(), NOW()
       )
       RETURNING *
     `;
@@ -108,6 +110,8 @@ export async function POST(req: Request) {
     const { rows } = await queryAutolavado<Booking>(query, [
       tenantId,
       service_id,
+      vehicle_size,
+      vehicle_count,
       status,
       start_at,
       end_at,

@@ -47,6 +47,15 @@ type WorkerAssignment = {
   end_at: string;
 };
 
+const defaultVehicleTypes = ["small", "medium", "large", "suv", "pickup"];
+const vehicleSizeLabels: Record<string, string> = {
+  small: "Pequeño",
+  medium: "Mediano",
+  large: "Grande",
+  suv: "SUV",
+  pickup: "Pickup",
+};
+
 export default function EditarCitaPage() {
   console.log("[DEBUG] Renderizando EditarCitaPage - archivo correcto");
   const router = useRouter();
@@ -57,6 +66,8 @@ export default function EditarCitaPage() {
   const [saving, setSaving] = useState(false);
   const [zones, setZones] = useState<Zone[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [vehicleTypes, setVehicleTypes] = useState<string[]>([]);
+  const vehicleOptions = vehicleTypes.length > 0 ? vehicleTypes : defaultVehicleTypes;
   const [booking, setBooking] = useState<Booking | null>(null);
   const [formData, setFormData] = useState({
     customer_name: "",
@@ -69,6 +80,8 @@ export default function EditarCitaPage() {
     start_time: "",
     end_time: "",
     notes: "",
+    vehicle_size: "",
+    vehicle_count: "1",
   });
   // Worker assignment modal state
   const [showAssignWorker, setShowAssignWorker] = useState(false);
@@ -214,6 +227,26 @@ export default function EditarCitaPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+  useEffect(() => {
+    const loadVehicleTypes = async () => {
+      try {
+        const res = await fetch("/api/custom/autolavado/vehicle-types");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setVehicleTypes(data);
+            return;
+          }
+        }
+        setVehicleTypes(defaultVehicleTypes);
+      } catch (err) {
+        setVehicleTypes(defaultVehicleTypes);
+      }
+    };
+
+    loadVehicleTypes();
+  }, []);
+
 
   // Cargar datos de la cita y trabajadores asignados al cargar bookingId
   useEffect(() => {
@@ -265,6 +298,8 @@ export default function EditarCitaPage() {
           start_time: startDate.toTimeString().slice(0, 5),
           end_time: endDate.toTimeString().slice(0, 5),
           notes: data.notes || "",
+          vehicle_size: data.vehicle_size || "",
+          vehicle_count: data.vehicle_count ? data.vehicle_count.toString() : "1",
         });
         // No await aquí para no bloquear la carga de la cita
         loadAssignedWorkers(data.id);
@@ -309,6 +344,17 @@ export default function EditarCitaPage() {
       return;
     }
 
+    if (!formData.vehicle_size) {
+      setError("Selecciona el tipo de vehículo");
+      return;
+    }
+
+    const vehicleCountNumber = parseInt(formData.vehicle_count || "1", 10);
+    if (!vehicleCountNumber || vehicleCountNumber < 1) {
+      setError("La cantidad de vehículos debe ser al menos 1");
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -330,6 +376,8 @@ export default function EditarCitaPage() {
         end_at: endAt.toISOString(),
         total_duration_min: durationMin,
         notes: formData.notes || null,
+        vehicle_size: formData.vehicle_size,
+        vehicle_count: vehicleCountNumber,
       };
 
       const res = await fetch(`/api/custom/autolavado/bookings/${bookingId}`, {
@@ -489,6 +537,39 @@ export default function EditarCitaPage() {
                           </span>
                         )}
                       </Button>
+                      <div className="grid md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <label className="block text-sm font-medium text-zinc-300 mb-2">
+                            Tipo de vehículo
+                          </label>
+                          <select
+                            value={formData.vehicle_size}
+                            onChange={(e) => setFormData({ ...formData, vehicle_size: e.target.value })}
+                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-white"
+                          >
+                            <option value="">Selecciona una opción</option>
+                            {vehicleOptions.map((type) => (
+                              <option key={type} value={type}>
+                                {vehicleSizeLabels[type] || type}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-zinc-300 mb-2">
+                            Cantidad de vehículos
+                          </label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={formData.vehicle_count}
+                            onChange={(e) =>
+                              setFormData({ ...formData, vehicle_count: e.target.value })
+                            }
+                            className="bg-zinc-800 border-zinc-700 text-white"
+                          />
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>

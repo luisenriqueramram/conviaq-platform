@@ -9,6 +9,7 @@ export interface Booking {
   tenant_id: number;
   service_id: number;
   vehicle_size: VehicleSize | null;
+  vehicle_count: number | null;
   status: BookingStatus;
   start_at: string;
   end_at: string;

@@ -46,6 +46,7 @@ export default function NuevaCitaPage() {
   const [serviceExtras, setServiceExtras] = useState<ServiceExtra[]>([]);
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedVehicleSize, setSelectedVehicleSize] = useState<string>("");
+  const [vehicleCount, setVehicleCount] = useState(1);
   const [selectedExtras, setSelectedExtras] = useState<number[]>([]);
   const [formData, setFormData] = useState({
     customer_name: "",
@@ -152,7 +153,11 @@ export default function NuevaCitaPage() {
       }
     });
 
-    return { totalDuration, totalPrice };
+    const count = Math.max(1, vehicleCount);
+    return {
+      totalDuration: totalDuration * count,
+      totalPrice: totalPrice * count,
+    };
   };
 
   const toggleExtra = (extraId: number) => {
@@ -219,6 +224,11 @@ export default function NuevaCitaPage() {
       return;
     }
 
+    if (!vehicleCount || vehicleCount < 1) {
+      setError("Debes indicar la cantidad de vehículos (mínimo 1)");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -240,6 +250,8 @@ export default function NuevaCitaPage() {
         lng: 0,
         zone_id: parseInt(formData.zone_id),
         service_id: selectedService,
+        vehicle_size: selectedVehicleSize,
+        vehicle_count: vehicleCount,
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString(),
         total_duration_min: durationMin,
@@ -433,6 +445,7 @@ export default function NuevaCitaPage() {
                         onChange={() => {
                           setSelectedService(service.id);
                           setSelectedVehicleSize("");
+                          setVehicleCount(1);
                         }}
                         className="w-5 h-5"
                       />
@@ -502,6 +515,20 @@ export default function NuevaCitaPage() {
                       </label>
                     );
                   })}
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                    Cantidad de vehículos de este tipo
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={vehicleCount}
+                    onChange={(e) =>
+                      setVehicleCount(Math.max(1, Number(e.target.value) || 1))
+                    }
+                    className="bg-zinc-800 border-zinc-700 text-white max-w-xs"
+                  />
                 </div>
               </CardContent>
             </Card>

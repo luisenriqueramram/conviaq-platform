@@ -50,6 +50,14 @@ export async function PATCH(
       updates.push(`service_id = $${paramIndex++}`);
       values.push(body.service_id);
     }
+    if (body.vehicle_size !== undefined) {
+      updates.push(`vehicle_size = $${paramIndex++}`);
+      values.push(body.vehicle_size);
+    }
+    if (body.vehicle_count !== undefined) {
+      updates.push(`vehicle_count = $${paramIndex++}`);
+      values.push(body.vehicle_count);
+    }
     if (body.status !== undefined) {
       updates.push(`status = $${paramIndex++}`);
       values.push(body.status);
