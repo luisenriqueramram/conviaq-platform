@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { requireSolarPanelAccess } from "@/lib/server/solar-panel-guard";
 import { query } from "@/lib/db";
@@ -7,15 +8,24 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ config
   const { configId } = await context.params;
   try {
     const id = Number(configId);
-    if (isNaN(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    if (isNaN(id)) {
+      console.error("[SolarPanelAPI] ID inválido:", configId);
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+    console.log(`[SolarPanelAPI] Intentando acceso: configId=${id}`);
     await requireSolarPanelAccess({ configId: id });
     const result = await query<{ schema_json: string }>(
       `SELECT schema_json FROM industry_configs WHERE id = $1`,
       [id]
     );
-    if (!result.rows[0]) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    if (!result.rows[0]) {
+      console.error(`[SolarPanelAPI] No encontrado en industry_configs: id=${id}`);
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
+    console.log(`[SolarPanelAPI] Configuración encontrada para id=${id}`);
     return NextResponse.json(JSON.parse(result.rows[0].schema_json));
   } catch (e: any) {
+    console.error(`[SolarPanelAPI] Error acceso configId=${configId}:`, e.message);
     return NextResponse.json({ error: e.message || "Error de acceso" }, { status: 403 });
   }
 }
