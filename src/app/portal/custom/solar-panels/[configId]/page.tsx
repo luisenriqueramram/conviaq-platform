@@ -104,6 +104,7 @@ export default function ConfiguracionParametrosSolares() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
+    let isMounted = true;
     async function fetchData() {
       setLoading(true);
       setError("");
@@ -111,15 +112,18 @@ export default function ConfiguracionParametrosSolares() {
         const res = await fetch(`/api/custom/solar-panels/${configId}`);
         if (!res.ok) throw new Error("No autorizado o error de acceso");
         const data = await res.json();
-        setValores({ ...valoresPorDefecto, ...data });
-        setError(""); // Limpiar error si todo salió bien
+        if (isMounted) {
+          setValores({ ...valoresPorDefecto, ...data });
+          setError("");
+        }
       } catch (e) {
-        setError("No tienes acceso o hubo un error al cargar los datos.");
+        if (isMounted) setError("No tienes acceso o hubo un error al cargar los datos.");
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
     fetchData();
+    return () => { isMounted = false; };
     // eslint-disable-next-line
   }, [configId]);
 
@@ -160,17 +164,26 @@ export default function ConfiguracionParametrosSolares() {
   }
 
   function handleRestablecer() {
-    setValores(valoresPorDefecto);
-    setSuccess("");
+    setLoading(true);
     setError("");
+    setSuccess("");
+    // Volver a cargar los valores reales desde el backend
+    fetch(`/api/custom/solar-panels/${configId}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setValores({ ...valoresPorDefecto, ...data });
+      })
+      .catch(() => setError("No se pudieron restablecer los valores."))
+      .finally(() => setLoading(false));
   }
 
   return (
     <div className="max-w-3xl mx-auto py-8 space-y-6">
       <h1 className="text-3xl font-bold mb-2">Configuración de Parámetros Solares</h1>
       <p className="text-zinc-500 mb-6">Ajusta los parámetros globales que utiliza el algoritmo de cotización de paneles solares para este tenant.</p>
-      {error && <div className="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">{error}</div>}
-      {success && <div className="bg-green-100 text-green-700 px-4 py-2 rounded mb-4">{success}</div>}
+      {!loading && error && <div className="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">{error}</div>}
+      {!loading && success && <div className="bg-green-100 text-green-700 px-4 py-2 rounded mb-4">{success}</div>}
       {loading ? (
         <div className="text-center text-zinc-400">Cargando...</div>
       ) : (
@@ -198,7 +211,7 @@ export default function ConfiguracionParametrosSolares() {
                             step="any"
                             value={valores[field.key as keyof typeof valoresPorDefecto]}
                             onChange={e => handleChange(field.key as keyof typeof valoresPorDefecto, e.target.value)}
-                            className="w-full"
+                            className="w-full border-2 border-zinc-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
                           />
                           <span className="text-zinc-400">{field.suffix}</span>
                         </div>
@@ -210,8 +223,14 @@ export default function ConfiguracionParametrosSolares() {
             ))}
           </div>
           <div className="flex gap-4 mt-8">
-            <Button type="submit" variant="default">Guardar Cambios</Button>
-            <Button type="button" variant="outline" onClick={handleRestablecer}>Restablecer Valores</Button>
+            <Button type="submit" variant="default" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded shadow transition flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              Guardar Cambios
+            </Button>
+            <Button type="button" variant="outline" onClick={handleRestablecer} className="border-zinc-400 text-zinc-600 hover:bg-zinc-100 font-semibold px-6 py-2 rounded transition flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582M20 20v-5h-.581M4 9V4a1 1 0 011-1h5m10 10v5a1 1 0 01-1 1h-5" /></svg>
+              Restablecer Valores
+            </Button>
           </div>
         </form>
       )}
