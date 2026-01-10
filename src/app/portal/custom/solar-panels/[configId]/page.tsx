@@ -97,6 +97,7 @@ const valoresPorDefecto = {
 };
 
 export default function ConfiguracionParametrosSolares() {
+  const [showToast, setShowToast] = useState(false);
   const { configId } = useParams();
   const [valores, setValores] = useState(valoresPorDefecto);
   const [loading, setLoading] = useState(true);
@@ -158,6 +159,8 @@ export default function ConfiguracionParametrosSolares() {
       });
       if (!res.ok) throw new Error("Error al guardar");
       setSuccess("¡Cambios guardados exitosamente!");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } catch (e) {
       setError("Error al guardar los cambios.");
     }
@@ -229,11 +232,12 @@ export default function ConfiguracionParametrosSolares() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                 Guardar Cambios
               </Button>
-              <Button type="button" variant="outline" onClick={handleRestablecer} className="border-zinc-400 text-zinc-600 hover:bg-zinc-100 font-semibold px-6 py-2 rounded transition flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582M20 20v-5h-.581M4 9V4a1 1 0 011-1h5m10 10v5a1 1 0 01-1 1h-5" /></svg>
-                Restablecer Valores
-              </Button>
             </div>
+            {showToast && (
+              <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded shadow-lg z-50 text-lg font-semibold animate-fade-in-out">
+                ¡Datos actualizados correctamente!
+              </div>
+            )}
           </form>
         </>
       )}
