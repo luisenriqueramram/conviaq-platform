@@ -182,57 +182,60 @@ export default function ConfiguracionParametrosSolares() {
     <div className="max-w-3xl mx-auto py-8 space-y-6">
       <h1 className="text-3xl font-bold mb-2">Configuración de Parámetros Solares</h1>
       <p className="text-zinc-500 mb-6">Ajusta los parámetros globales que utiliza el algoritmo de cotización de paneles solares para este tenant.</p>
-      {!loading && error && <div className="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">{error}</div>}
-      {!loading && success && <div className="bg-green-100 text-green-700 px-4 py-2 rounded mb-4">{success}</div>}
-      {loading ? (
-        <div className="text-center text-zinc-400">Cargando...</div>
-      ) : (
-        <form onSubmit={e => { e.preventDefault(); handleGuardar(); }}>
-          <div className="space-y-6">
-            {campos.map((grupo) => (
-              <Card key={grupo.grupo}>
-                <CardHeader>
-                  <CardTitle>{grupo.grupo}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {grupo.fields.map((field) => (
-                      <div key={field.key} className="flex flex-col gap-1">
-                        <label className="font-medium flex items-center gap-2">
-                          {field.label}
-                          <Tooltip content={field.tooltip}>
-                            <span className="text-blue-500 cursor-help">?</span>
-                          </Tooltip>
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min={field.min ?? 0}
-                            step="any"
-                            value={valores[field.key as keyof typeof valoresPorDefecto]}
-                            onChange={e => handleChange(field.key as keyof typeof valoresPorDefecto, e.target.value)}
-                            className="w-full border-2 border-zinc-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
-                          />
-                          <span className="text-zinc-400">{field.suffix}</span>
+      {loading && <div className="text-center text-zinc-400">Cargando...</div>}
+      {!loading && error && (
+        <div className="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">{error}</div>
+      )}
+      {!loading && !error && (
+        <>
+          {success && <div className="bg-green-100 text-green-700 px-4 py-2 rounded mb-4">{success}</div>}
+          <form onSubmit={e => { e.preventDefault(); handleGuardar(); }}>
+            <div className="space-y-6">
+              {campos.map((grupo) => (
+                <Card key={grupo.grupo}>
+                  <CardHeader>
+                    <CardTitle>{grupo.grupo}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {grupo.fields.map((field) => (
+                        <div key={field.key} className="flex flex-col gap-1">
+                          <label className="font-medium flex items-center gap-2">
+                            {field.label}
+                            <Tooltip content={field.tooltip}>
+                              <span className="text-blue-500 cursor-help">?</span>
+                            </Tooltip>
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min={field.min ?? 0}
+                              step="any"
+                              value={valores[field.key as keyof typeof valoresPorDefecto]}
+                              onChange={e => handleChange(field.key as keyof typeof valoresPorDefecto, e.target.value)}
+                              className="w-full border-2 border-zinc-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+                            />
+                            <span className="text-zinc-400">{field.suffix}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <div className="flex gap-4 mt-8">
-            <Button type="submit" variant="default" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded shadow transition flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-              Guardar Cambios
-            </Button>
-            <Button type="button" variant="outline" onClick={handleRestablecer} className="border-zinc-400 text-zinc-600 hover:bg-zinc-100 font-semibold px-6 py-2 rounded transition flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582M20 20v-5h-.581M4 9V4a1 1 0 011-1h5m10 10v5a1 1 0 01-1 1h-5" /></svg>
-              Restablecer Valores
-            </Button>
-          </div>
-        </form>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <div className="flex gap-4 mt-8">
+              <Button type="submit" variant="default" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded shadow transition flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                Guardar Cambios
+              </Button>
+              <Button type="button" variant="outline" onClick={handleRestablecer} className="border-zinc-400 text-zinc-600 hover:bg-zinc-100 font-semibold px-6 py-2 rounded transition flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582M20 20v-5h-.581M4 9V4a1 1 0 011-1h5m10 10v5a1 1 0 01-1 1h-5" /></svg>
+                Restablecer Valores
+              </Button>
+            </div>
+          </form>
+        </>
       )}
     </div>
   );
