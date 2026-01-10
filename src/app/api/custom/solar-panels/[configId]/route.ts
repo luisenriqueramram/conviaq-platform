@@ -23,7 +23,17 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ config
       return NextResponse.json({ error: "No encontrado" }, { status: 404 });
     }
     console.log(`[SolarPanelAPI] Configuración encontrada para id=${id}`);
-    return NextResponse.json(JSON.parse(result.rows[0].schema_json));
+    const schema = result.rows[0].schema_json;
+    if (typeof schema === "string") {
+      try {
+        return NextResponse.json(JSON.parse(schema));
+      } catch (e) {
+        console.error(`[SolarPanelAPI] Error parseando schema_json como string:`, e);
+        return NextResponse.json({ error: "Error de formato en schema_json" }, { status: 500 });
+      }
+    } else {
+      return NextResponse.json(schema);
+    }
   } catch (e: any) {
     console.error(`[SolarPanelAPI] Error acceso configId=${configId}:`, e.message);
     return NextResponse.json({ error: e.message || "Error de acceso" }, { status: 403 });
