@@ -112,6 +112,7 @@ export default function ConfiguracionParametrosSolares() {
         if (!res.ok) throw new Error("No autorizado o error de acceso");
         const data = await res.json();
         setValores({ ...valoresPorDefecto, ...data });
+        setError(""); // Limpiar error si todo salió bien
       } catch (e) {
         setError("No tienes acceso o hubo un error al cargar los datos.");
       } finally {
