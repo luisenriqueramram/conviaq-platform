@@ -1,8 +1,7 @@
 // src/app/api/bot-profile/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-
-const TENANT_ID = 1;
+import { requireSession } from "@/lib/server/session";
 
 async function getOrCreateActiveProfile(tenantId: number) {
   // 1) Busca el activo
@@ -36,7 +35,8 @@ async function getOrCreateActiveProfile(tenantId: number) {
 
 export async function GET() {
   try {
-    const profile = await getOrCreateActiveProfile(TENANT_ID);
+    const { tenantId } = await requireSession();
+    const profile = await getOrCreateActiveProfile(tenantId);
     return NextResponse.json({ ok: true, data: { profile } });
   } catch (e: any) {
     return NextResponse.json(
@@ -48,6 +48,7 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   try {
+    const { tenantId } = await requireSession();
     const body = await req.json();
 
     // Whitelist estricto de campos editables (MVP)
@@ -68,7 +69,7 @@ export async function PATCH(req: Request) {
       tools: body.tools && typeof body.tools === "object" ? body.tools : undefined,
     };
 
-    const profile = await getOrCreateActiveProfile(TENANT_ID);
+    const profile = await getOrCreateActiveProfile(tenantId);
 
     const updated = await db.query(
       `
