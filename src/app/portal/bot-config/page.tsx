@@ -121,17 +121,7 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   );
 }
 
-function Toggle({
-  value,
-  onChange,
-  label,
-  desc,
-}: {
-  value: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  desc?: string;
-}) {
+function Toggle({ value, onChange, label, desc }: { value: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="min-w-0">
@@ -142,16 +132,28 @@ function Toggle({
         type="button"
         onClick={() => onChange(!value)}
         className={cn(
-          "h-8 w-14 rounded-full border transition relative",
-          value ? "bg-blue-500/20 border-blue-500/40" : "bg-zinc-900/60 border-white/10"
+          "h-10 w-20 flex items-center rounded-full border-2 transition-all duration-300 relative shadow-lg group focus:outline-none",
+          value
+            ? "bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600 border-blue-400/70"
+            : "bg-zinc-800 border-zinc-700"
         )}
+        style={{ boxShadow: value ? '0 2px 16px 0 rgba(56,189,248,0.25)' : '0 1px 4px 0 rgba(0,0,0,0.15)' }}
+        aria-pressed={value}
       >
         <span
           className={cn(
-            "absolute top-1/2 -translate-y-1/2 h-6 w-6 rounded-full transition",
-            value ? "left-7 bg-blue-500" : "left-1 bg-zinc-600"
+            "absolute left-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white shadow-md transition-all duration-300",
+            value ? "translate-x-10 bg-gradient-to-br from-blue-400 to-blue-600" : "bg-zinc-300"
           )}
         />
+        <span className={cn(
+          "absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold transition-all duration-300 select-none",
+          value ? "opacity-0" : "opacity-100 text-zinc-500"
+        )}>OFF</span>
+        <span className={cn(
+          "absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold transition-all duration-300 select-none",
+          value ? "opacity-100 text-blue-100" : "opacity-0"
+        )}>ON</span>
       </button>
     </div>
   );
@@ -362,12 +364,14 @@ export default function BotConfigPage() {
             onClick={saveAll}
             disabled={loading || saving || !isDirty}
             className={cn(
-              "h-10 px-4 rounded-full border text-sm font-semibold transition",
-              "border-blue-500/30 bg-blue-500/15 text-blue-100 hover:bg-blue-500/20",
+              "relative h-12 px-8 rounded-full font-bold text-base transition-all duration-300 overflow-hidden group border-2",
+              "bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600 border-blue-400/70 text-white shadow-lg",
+              "hover:from-blue-600 hover:to-cyan-500 hover:scale-105 active:scale-95",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
           >
-            {saving ? "Guardando…" : "Guardar cambios"}
+            <span className="relative z-10">{saving ? "Guardando…" : "Guardar cambios"}</span>
+            <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/10" />
           </button>
         </div>
       </div>
