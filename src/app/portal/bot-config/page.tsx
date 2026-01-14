@@ -336,30 +336,15 @@ export default function BotConfigPage() {
     }
   };
 
-  return (
-    <div className="p-8 pt-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-semibold text-white tracking-tight">Bot Config</h1>
-            <span className="px-3 py-1 rounded-full text-[11px] border border-blue-500/25 bg-blue-500/10 text-blue-200">
+    return (
+      <div className="min-h-screen w-full bg-zinc-950/95 p-8 flex flex-col gap-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-2">
+          <div>
+            <h1 className="text-3xl font-bold text-white tracking-tight mb-1">Controles de IA</h1>
+            <span className="inline-block px-3 py-1 rounded-full text-xs border border-blue-500/25 bg-blue-500/10 text-blue-200 font-semibold">
               {effectiveAiReadable}
             </span>
           </div>
-          <p className="text-zinc-500 mt-1 font-medium">
-            Configuración por secciones. Control real (sin mezclar cosas).
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {profile ? (
-            <div className="text-[11px] text-zinc-500">
-              v{profile.config_version} ·{" "}
-              {savedAt ? `guardado ${savedAt}` : isDirty ? "cambios pendientes" : "sin cambios"}
-            </div>
-          ) : null}
-
           <button
             onClick={saveAll}
             disabled={loading || saving || !isDirty}
@@ -374,105 +359,89 @@ export default function BotConfigPage() {
             <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/10" />
           </button>
         </div>
-      </div>
-
-      {/* Banner: solo cuando hay cambios */}
-      {isDirty ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200">
-          <span className="font-semibold text-white">Nota:</span> Los cambios{" "}
-          <span className="font-semibold">no se guardan</span> hasta que presiones{" "}
-          <span className="font-semibold">“Guardar cambios”</span>.
-        </div>
-      ) : null}
-
-      {loading ? (
-        <div className="text-sm text-zinc-500">Cargando configuración…</div>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <SpotlightCard className="p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Operación</div>
-                <div className="text-lg font-semibold text-white mt-1">IA (controles)</div>
-              </div>
-              <div className="px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase border border-white/10 bg-white/5 text-zinc-200">runtime + bot profile</div>
-            </div>
-            <div className="grid md:grid-cols-2 gap-6">
-              <SpotlightCard className="p-5 bg-zinc-950/30">
+        {isDirty ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200">
+            <span className="font-semibold text-white">Nota:</span> Los cambios <span className="font-semibold">no se guardan</span> hasta que presiones <span className="font-semibold">“Guardar cambios”</span>.
+          </div>
+        ) : null}
+        {loading ? (
+          <div className="text-sm text-zinc-500">Cargando configuración…</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {/* IA Global */}
+            <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-lg font-bold text-white mb-1">IA Global: {tenantAiForceOff ? 'OFF' : 'ON'}</div>
+                  <div className="text-zinc-400 text-sm">Apaga/enciende RESPUESTAS del bot para toda la cuenta. El resto del sistema sigue funcionando.</div>
+                </div>
                 <Toggle
                   value={!tenantAiForceOff}
                   onChange={(v) => setTenantAiForceOff(!v)}
-                  label={!tenantAiForceOff ? "IA Global: ON" : "IA Global: OFF"}
-                  desc="Apaga/enciende RESPUESTAS del bot para toda la cuenta. El resto del sistema sigue funcionando."
+                  label={''}
                 />
-                <div className="mt-3 text-[11px] text-zinc-500">Úsalo como “apagado de emergencia” sin cambiar configuraciones del bot.</div>
-              </SpotlightCard>
-              <SpotlightCard className="p-5 bg-zinc-950/30">
+              </div>
+              <div className="text-xs text-zinc-500 mt-2">Úsalo como “apagado de emergencia” sin cambiar configuraciones del bot.</div>
+            </div>
+            {/* IA del Bot */}
+            <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-lg font-bold text-white mb-1">IA del Bot {botAiEnabled ? 'ON' : 'OFF'}</div>
+                  <div className="text-zinc-400 text-sm">Apaga/enciende solo este asistente. No afecta la configuración global.</div>
+                </div>
                 <Toggle
                   value={botAiEnabled}
                   onChange={setBotAiEnabled}
-                  label={botAiEnabled ? "IA del Bot: ON" : "IA del Bot: OFF"}
-                  desc="Apaga/enciende solo este asistente. No afecta la configuración global."
+                  label={''}
                 />
-                <div className="mt-3 text-[11px] text-zinc-500">El AI Guard (cooldown/conversación) sigue aplicando.</div>
-              </SpotlightCard>
+              </div>
+              <div className="text-xs text-zinc-500 mt-2">El AI Guard (cooldown/conversación) sigue aplicando.</div>
             </div>
-            <div className="mt-6 grid md:grid-cols-2 gap-6">
-              <SpotlightCard className="p-5 bg-zinc-950/30 md:col-span-2">
-                <div className="flex items-start justify-between gap-6">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-white">Cooldown automático</div>
-                    <div className="text-[11px] text-zinc-500 mt-1">Si un humano envía un mensaje, la IA se pausa temporalmente (por conversación).</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCooldownEnabled((v) => !v)}
-                    className={cn(
-                      "h-8 w-14 rounded-full border transition relative shrink-0",
-                      cooldownEnabled ? "bg-blue-500/20 border-blue-500/40" : "bg-zinc-900/60 border-white/10"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute top-1/2 -translate-y-1/2 h-6 w-6 rounded-full transition",
-                        cooldownEnabled ? "left-7 bg-blue-500" : "left-1 bg-zinc-600"
-                      )}
-                    />
-                  </button>
+            {/* Cooldown automático */}
+            <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-lg font-bold text-white mb-1">Cooldown automático</div>
+                  <div className="text-zinc-400 text-sm">Si un humano envía un mensaje, la IA se pausa temporalmente (por conversación).</div>
                 </div>
-                {cooldownEnabled ? (
-                  <div className="mt-4 grid md:grid-cols-2 gap-4">
-                    <Field label="Duración del cooldown" hint="Se guarda en minutos (DB). Si eliges “Permanente”, mandamos 0 minutos para que lo trates como bloqueo manual.">
-                      <select
-                        value={String(cooldownMinutes)}
-                        onChange={(e) => setCooldownMinutes(Number(e.target.value))}
-                        className={cn(
-                          "w-full rounded-xl border border-white/10 bg-zinc-900/50 px-3 py-2.5 text-sm text-zinc-200",
-                          "outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/30"
-                        )}
-                      >
-                        {COOLDOWN_OPTIONS.map((o) => (
-                          <option key={o.label} value={String(o.minutes)}>{o.label}</option>
-                        ))}
-                      </select>
-                    </Field>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-[11px] text-zinc-300">
-                      <div className="font-semibold text-white mb-1">Qué pasa cuando aplica:</div>
-                      <ul className="list-disc pl-4 space-y-1 text-zinc-400">
-                        <li>La IA NO responde en esa conversación durante el tiempo elegido.</li>
-                        <li>No cambia tu configuración; solo bloquea temporalmente.</li>
-                        <li>Cuando vence el tiempo, se reactiva sola (sin cron).</li>
-                      </ul>
-                    </div>
+                <Toggle
+                  value={cooldownEnabled}
+                  onChange={setCooldownEnabled}
+                  label={''}
+                />
+              </div>
+              {cooldownEnabled ? (
+                <div className="mt-4 flex flex-col gap-2">
+                  <Field label="Duración del cooldown" hint="Se guarda en minutos (DB). Si eliges “Permanente”, mandamos 0 minutos para que lo trates como bloqueo manual.">
+                    <select
+                      value={String(cooldownMinutes)}
+                      onChange={(e) => setCooldownMinutes(Number(e.target.value))}
+                      className={cn(
+                        "w-full rounded-xl border border-white/10 bg-zinc-900/50 px-3 py-2.5 text-sm text-zinc-200",
+                        "outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/30"
+                      )}
+                    >
+                      {COOLDOWN_OPTIONS.map((o) => (
+                        <option key={o.label} value={String(o.minutes)}>{o.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-[11px] text-zinc-300">
+                    <div className="font-semibold text-white mb-1">Qué pasa cuando aplica:</div>
+                    <ul className="list-disc pl-4 space-y-1 text-zinc-400">
+                      <li>La IA NO responde en esa conversación durante el tiempo elegido.</li>
+                      <li>No cambia tu configuración; solo bloquea temporalmente.</li>
+                      <li>Cuando vence el tiempo, se reactiva sola (sin cron).</li>
+                    </ul>
                   </div>
-                ) : (
-                  <div className="mt-3 text-[11px] text-zinc-500">OFF por defecto. La IA no se pausa automáticamente cuando un humano escribe.</div>
-                )}
-              </SpotlightCard>
+                </div>
+              ) : (
+                <div className="mt-3 text-[11px] text-zinc-500">OFF por defecto. La IA no se pausa automáticamente cuando un humano escribe.</div>
+              )}
             </div>
-          </SpotlightCard>
-        </div>
-      )}
-    </div>
-  );
+          </div>
+        )}
+      </div>
+    );
 }
