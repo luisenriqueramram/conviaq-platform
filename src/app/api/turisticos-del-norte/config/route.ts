@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession, requireSuperAdminOrPlan10 } from "@/lib/server/session";
+import { requireSession } from "@/lib/server/session";
 import { db } from "@/lib/db";
 
 // Tenant fijo para Turísticos del Norte
@@ -10,16 +10,7 @@ const INDUSTRY = 'turisticos-del-norte';
 export async function GET() {
   try {
     const { tenantId } = await requireSession();
-    let allowed = tenantId === TENANT_ID;
-    if (!allowed) {
-      try {
-        const { isSuper, isPlan10 } = await requireSuperAdminOrPlan10();
-        allowed = isSuper || isPlan10;
-      } catch (e) {
-        allowed = false;
-      }
-    }
-    if (!allowed) {
+    if (tenantId !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
     }
     let res = await db.query(

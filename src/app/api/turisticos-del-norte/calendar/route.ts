@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession, requireSuperAdminOrPlan10 } from "@/lib/server/session";
+import { requireSession } from "@/lib/server/session";
 import { db } from "@/lib/db";
 
 const TENANT_ID = 26;
@@ -8,16 +8,7 @@ const TENANT_ID = 26;
 export async function GET() {
   try {
     const { tenantId } = await requireSession();
-    let allowed = tenantId === TENANT_ID;
-    if (!allowed) {
-      try {
-        const { isSuper, isPlan10 } = await requireSuperAdminOrPlan10();
-        allowed = isSuper || isPlan10;
-      } catch (e) {
-        allowed = false;
-      }
-    }
-    if (!allowed) {
+    if (tenantId !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
     }
     const res = await db.query(
@@ -35,16 +26,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const { tenantId } = await requireSession();
-    let allowed = tenantId === TENANT_ID;
-    if (!allowed) {
-      try {
-        const { isSuper, isPlan10 } = await requireSuperAdminOrPlan10();
-        allowed = isSuper || isPlan10;
-      } catch (e) {
-        allowed = false;
-      }
-    }
-    if (!allowed) {
+    if (tenantId !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
     }
     const body = await req.json();
