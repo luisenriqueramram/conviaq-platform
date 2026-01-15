@@ -10,7 +10,7 @@ const INDUSTRY = 'turisticos-del-norte';
 export async function GET() {
   try {
     const { tenantId } = await requireSession();
-    if (tenantId !== TENANT_ID) {
+    if (Number(tenantId) !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
     }
     let res = await db.query(

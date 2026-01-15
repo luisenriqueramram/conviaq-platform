@@ -8,7 +8,7 @@ const TENANT_ID = 26;
 export async function GET() {
   try {
     const { tenantId } = await requireSession();
-    if (tenantId !== TENANT_ID) {
+    if (Number(tenantId) !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
     }
     const res = await db.query(
@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const { tenantId } = await requireSession();
-    if (tenantId !== TENANT_ID) {
+    if (Number(tenantId) !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
     }
     const body = await req.json();
