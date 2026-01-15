@@ -66,16 +66,25 @@ function RoutesSection() {
   const [routes, setRoutes] = useState<any>({});
   const [info, setInfo] = useState<string>("");
   const [debugSchema, setDebugSchema] = useState<string>("");
+  const [currentTenant, setCurrentTenant] = useState<string>("");
 
   useEffect(() => {
     setLoading(true);
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((m) => {
+        if (m?.tenant?.id) setCurrentTenant(String(m.tenant.id));
+      })
+      .catch(() => {})
+      .finally(() => {});
+
     fetch("/api/turisticos-del-norte/config")
       .then(async (res) => {
         if (!res.ok) {
           let detail = "";
           try {
             const j = await res.json();
-            detail = j?.error ? ` · ${j.error}` : "";
+            detail = j ? ` · ${JSON.stringify(j)}` : "";
           } catch (e) {
             detail = "";
           }
@@ -101,7 +110,7 @@ function RoutesSection() {
         setDebugSchema(`typeof schema_json: ${typeof rawSchema} · preview: ${preview}`);
         setError(null);
       })
-      .catch((err: any) => setError(`No se pudo cargar la configuración. ${err?.message ?? ""}`))
+        .catch((err: any) => setError(`No se pudo cargar la configuración. ${err?.message ?? ""}`))
       .finally(() => setLoading(false));
   }, []);
 
@@ -109,6 +118,7 @@ function RoutesSection() {
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-4">Configuración de Rutas</h2>
       <div className="text-zinc-400 mb-4">Administra las rutas, paradas y horarios de tu empresa turística.</div>
+      {currentTenant && <div className="text-xs text-zinc-500">Tenant actual en sesión: {currentTenant}</div>}
       {loading ? (
         <div className="text-blue-300">Cargando rutas…</div>
       ) : error ? (
