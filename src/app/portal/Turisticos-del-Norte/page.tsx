@@ -12,12 +12,12 @@ export default function TuristicosDelNortePanel() {
   const [tab, setTab] = useState("calendar");
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-zinc-950 via-blue-900/60 to-zinc-900 p-8 flex flex-col gap-8">
+    <div className="min-h-screen w-full bg-zinc-950 p-8 flex flex-col gap-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-2">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight mb-1">Turísticos del Norte</h1>
-          <span className="inline-block px-3 py-1 rounded-full text-xs border border-blue-500/25 bg-blue-500/10 text-blue-200 font-semibold">
-            Panel exclusivo para transporte turístico
+          <span className="inline-block px-3 py-1 rounded-full text-xs border border-blue-500/25 bg-zinc-800 text-blue-200 font-semibold">
+            Panel exclusivo para Miguel Hernandez
           </span>
         </div>
       </div>
