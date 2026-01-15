@@ -70,11 +70,17 @@ function RoutesSection() {
     fetch("/api/turisticos-del-norte/config")
       .then((res) => res.json())
       .then((data) => {
-        if (data.ok && data.config?.schema_json?.routes) {
-          setRoutes(data.config.schema_json.routes);
-        } else {
-          setRoutes({});
+        const rawSchema = data?.config?.schema_json;
+        let parsed = rawSchema;
+        if (typeof rawSchema === "string") {
+          try {
+            parsed = JSON.parse(rawSchema);
+          } catch (e) {
+            parsed = null;
+          }
         }
+        const routesData = parsed?.routes ?? {};
+        setRoutes(routesData);
         setError(null);
       })
       .catch(() => setError("No se pudo cargar la configuración."))
