@@ -65,6 +65,7 @@ function RoutesSection() {
   const [error, setError] = useState<string | null>(null);
   const [routes, setRoutes] = useState<any>({});
   const [info, setInfo] = useState<string>("");
+  const [debugSchema, setDebugSchema] = useState<string>("");
 
   useEffect(() => {
     setLoading(true);
@@ -84,6 +85,8 @@ function RoutesSection() {
         const routesData = parsed?.routes ?? {};
         setRoutes(routesData);
         setInfo(industryUsed);
+        const preview = typeof rawSchema === "string" ? rawSchema.slice(0, 200) : JSON.stringify(rawSchema).slice(0, 200);
+        setDebugSchema(`typeof schema_json: ${typeof rawSchema} · preview: ${preview}`);
         setError(null);
       })
       .catch(() => setError("No se pudo cargar la configuración."))
@@ -99,9 +102,10 @@ function RoutesSection() {
       ) : error ? (
         <div className="text-red-400">{error}</div>
       ) : Object.keys(routes).length === 0 ? (
-        <div className="text-zinc-500">
-          No hay rutas configuradas. Usa el botón para agregar la primera ruta.
-          {info && <div className="text-xs text-zinc-600 mt-1">{info}</div>}
+        <div className="text-zinc-500 space-y-1">
+          <div>No hay rutas configuradas. Usa el botón para agregar la primera ruta.</div>
+          {info && <div className="text-xs text-zinc-600">{info}</div>}
+          {debugSchema && <div className="text-[11px] text-zinc-600">{debugSchema}</div>}
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
