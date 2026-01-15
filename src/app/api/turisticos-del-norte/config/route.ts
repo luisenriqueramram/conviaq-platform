@@ -13,8 +13,8 @@ export async function GET() {
     let allowed = tenantId === TENANT_ID;
     if (!allowed) {
       try {
-        const { isSuper } = await requireSuperAdminOrPlan10();
-        allowed = isSuper;
+        const { isSuper, isPlan10 } = await requireSuperAdminOrPlan10();
+        allowed = isSuper || isPlan10;
       } catch (e) {
         allowed = false;
       }
