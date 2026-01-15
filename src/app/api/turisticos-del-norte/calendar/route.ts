@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const { tenantId } = await requireSession();
     if (tenantId !== TENANT_ID) {
-      return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
+      return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
     }
     const res = await db.query(
       `SELECT id, route_key, trip_date, departure_time, price, status FROM tours_calendar WHERE tenant_id = $1 ORDER BY trip_date DESC, departure_time DESC`,
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   try {
     const { tenantId } = await requireSession();
     if (tenantId !== TENANT_ID) {
-      return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
+      return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
     }
     const body = await req.json();
     const { route_key, trip_date, departure_time, price, status } = body;

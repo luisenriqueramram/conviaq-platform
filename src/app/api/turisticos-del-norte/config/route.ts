@@ -11,7 +11,7 @@ export async function GET() {
   try {
     const { tenantId } = await requireSession();
     if (tenantId !== TENANT_ID) {
-      return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
+      return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
     }
     let res = await db.query(
       `SELECT id, industry, schema_json FROM industry_configs WHERE tenant_id = $1 AND industry = $2 LIMIT 1`,

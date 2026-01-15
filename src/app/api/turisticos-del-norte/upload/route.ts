@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   try {
     const { tenantId } = await requireSession();
     if (tenantId !== TENANT_ID) {
-      return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
+      return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
     }
     const formData = await req.formData();
     const file = formData.get("file") as File;
