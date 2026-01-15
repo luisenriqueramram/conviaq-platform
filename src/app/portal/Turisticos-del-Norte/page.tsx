@@ -70,7 +70,19 @@ function RoutesSection() {
   useEffect(() => {
     setLoading(true);
     fetch("/api/turisticos-del-norte/config")
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) {
+          let detail = "";
+          try {
+            const j = await res.json();
+            detail = j?.error ? ` · ${j.error}` : "";
+          } catch (e) {
+            detail = "";
+          }
+          throw new Error(`Status ${res.status}${detail}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         const rawSchema = data?.config?.schema_json;
         const industryUsed = data?.config?.industry ? `Industria: ${data.config.industry}` : "";
@@ -89,7 +101,7 @@ function RoutesSection() {
         setDebugSchema(`typeof schema_json: ${typeof rawSchema} · preview: ${preview}`);
         setError(null);
       })
-      .catch(() => setError("No se pudo cargar la configuración."))
+      .catch((err: any) => setError(`No se pudo cargar la configuración. ${err?.message ?? ""}`))
       .finally(() => setLoading(false));
   }, []);
 
