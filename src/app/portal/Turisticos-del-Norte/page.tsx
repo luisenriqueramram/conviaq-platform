@@ -1,5 +1,6 @@
 "use client";
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -57,13 +58,76 @@ function CalendarSection() {
   );
 }
 
+
+
 function RoutesSection() {
-  // TODO: Implementar CRUD de rutas y paradas
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [routes, setRoutes] = useState<any>({});
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/turisticos-del-norte/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok && data.config?.schema_json?.routes) {
+          setRoutes(data.config.schema_json.routes);
+        } else {
+          setRoutes({});
+        }
+        setError(null);
+      })
+      .catch(() => setError("No se pudo cargar la configuración."))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-4">Configuración de Rutas</h2>
-      <div className="text-zinc-400">Administra las rutas, paradas y horarios de tu empresa turística.</div>
-      {/* CRUD de rutas y paradas va aquí */}
+      <div className="text-zinc-400 mb-4">Administra las rutas, paradas y horarios de tu empresa turística.</div>
+      {loading ? (
+        <div className="text-blue-300">Cargando rutas…</div>
+      ) : error ? (
+        <div className="text-red-400">{error}</div>
+      ) : Object.keys(routes).length === 0 ? (
+        <div className="text-zinc-500">No hay rutas configuradas. Usa el botón para agregar la primera ruta.</div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-6">
+          {Object.entries(routes).map(([key, route]: any) => (
+            <div key={key} className="rounded-2xl bg-zinc-900/80 border border-blue-900/30 p-6 flex flex-col gap-2 shadow-md">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-lg font-bold text-white">{route.name}</div>
+                  <div className="text-xs text-blue-300 font-mono">Código: {route.code || key}</div>
+                </div>
+                <span className="px-2 py-1 rounded bg-blue-900/30 text-xs text-blue-200">{route.origin} → {route.destination}</span>
+              </div>
+              <div className="mt-2">
+                <div className="text-xs text-zinc-400 mb-1 font-semibold">Paradas:</div>
+                <ul className="pl-4 list-disc space-y-1">
+                  {route.stops?.length ? (
+                    route.stops.map((stop: any, idx: number) => (
+                      <li key={idx} className="text-zinc-300">
+                        <span className="font-semibold">{stop.name}</span>
+                        {typeof stop.minutes_offset === "number" ? (
+                          <span className="ml-2 text-blue-400">+{stop.minutes_offset} min</span>
+                        ) : (
+                          <span className="ml-2 text-zinc-500">(sin horario)</span>
+                        )}
+                        {stop.location_url && (
+                          <a href={stop.location_url} target="_blank" rel="noopener noreferrer" className="ml-2 underline text-blue-300">Ver mapa</a>
+                        )}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-zinc-500">Sin paradas registradas.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
