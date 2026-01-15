@@ -13,13 +13,23 @@ export async function GET() {
     if (tenantId !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
     }
-    const res = await db.query(
-      `SELECT id, schema_json FROM industry_configs WHERE tenant_id = $1 AND industry = $2 LIMIT 1`,
+    let res = await db.query(
+      `SELECT id, industry, schema_json FROM industry_configs WHERE tenant_id = $1 AND industry = $2 LIMIT 1`,
       [TENANT_ID, INDUSTRY]
     );
+
+    // Fallback: si no hay registro para el industry esperado, tomar el primero del tenant
+    if (!res.rows[0]) {
+      res = await db.query(
+        `SELECT id, industry, schema_json FROM industry_configs WHERE tenant_id = $1 ORDER BY id ASC LIMIT 1`,
+        [TENANT_ID]
+      );
+    }
+
     if (!res.rows[0]) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
+
     return NextResponse.json({ ok: true, config: res.rows[0] });
   } catch (error) {
     console.error("[API] GET turisticos-del-norte/config", error);

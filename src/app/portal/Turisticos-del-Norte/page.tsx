@@ -64,6 +64,7 @@ function RoutesSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [routes, setRoutes] = useState<any>({});
+  const [info, setInfo] = useState<string>("");
 
   useEffect(() => {
     setLoading(true);
@@ -71,6 +72,7 @@ function RoutesSection() {
       .then((res) => res.json())
       .then((data) => {
         const rawSchema = data?.config?.schema_json;
+        const industryUsed = data?.config?.industry ? `Industria: ${data.config.industry}` : "";
         let parsed = rawSchema;
         if (typeof rawSchema === "string") {
           try {
@@ -81,6 +83,7 @@ function RoutesSection() {
         }
         const routesData = parsed?.routes ?? {};
         setRoutes(routesData);
+        setInfo(industryUsed);
         setError(null);
       })
       .catch(() => setError("No se pudo cargar la configuración."))
@@ -96,7 +99,10 @@ function RoutesSection() {
       ) : error ? (
         <div className="text-red-400">{error}</div>
       ) : Object.keys(routes).length === 0 ? (
-        <div className="text-zinc-500">No hay rutas configuradas. Usa el botón para agregar la primera ruta.</div>
+        <div className="text-zinc-500">
+          No hay rutas configuradas. Usa el botón para agregar la primera ruta.
+          {info && <div className="text-xs text-zinc-600 mt-1">{info}</div>}
+        </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
           {Object.entries(routes).map(([key, route]: any) => (
