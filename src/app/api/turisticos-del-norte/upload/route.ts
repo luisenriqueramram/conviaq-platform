@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/server/session";
+import { requireSession, requireSuperAdminOrPlan10 } from "@/lib/server/session";
 import { db } from "@/lib/db";
 
 const TENANT_ID = 26;
@@ -8,7 +8,16 @@ const TENANT_ID = 26;
 export async function POST(req: Request) {
   try {
     const { tenantId } = await requireSession();
-    if (tenantId !== TENANT_ID) {
+    let allowed = tenantId === TENANT_ID;
+    if (!allowed) {
+      try {
+        const { isSuper } = await requireSuperAdminOrPlan10();
+        allowed = isSuper;
+      } catch (e) {
+        allowed = false;
+      }
+    }
+    if (!allowed) {
       return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
     }
     const formData = await req.formData();
