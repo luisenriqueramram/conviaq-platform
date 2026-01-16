@@ -397,6 +397,8 @@ function RoutesSection() {
   const [error, setError] = useState<string | null>(null);
   const [routes, setRoutes] = useState<any>({});
   const [rawSchema, setRawSchema] = useState<any>(null);
+  const [calendarRows, setCalendarRows] = useState<CalendarRow[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
   const [info, setInfo] = useState<string>("");
   const [debugSchema, setDebugSchema] = useState<string>("");
   const [currentTenant, setCurrentTenant] = useState<string>("");
@@ -450,18 +452,35 @@ function RoutesSection() {
     new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long" }).format(d);
   const makeId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
 
+  const getLatestRowForRoute = (routeKey: string) => {
+    let latest: CalendarRow | null = null;
+    for (const row of calendarRows) {
+      if (row.route_key !== routeKey) continue;
+      if (!latest) {
+        latest = row;
+        continue;
+      }
+      const da = new Date(`${row.trip_date}T${row.departure_time}`);
+      const db = new Date(`${latest.trip_date}T${latest.departure_time}`);
+      if (da.getTime() > db.getTime()) latest = row;
+    }
+    return latest;
+  };
+
   const openPlanner = (routeKey: string, routeData: any) => {
     const today = new Date();
     const end = new Date();
     end.setDate(today.getDate() + 13);
+    const latest = getLatestRowForRoute(routeKey);
+    const latestTime = latest?.departure_time ? latest.departure_time.slice(0, 5) : "07:00";
     setPlannerRouteKey(routeKey);
     setPlannerRange({ start: toIsoDate(today), end: toIsoDate(end) });
     setPlannerBase({
-      price: "",
-      time: "07:00",
+      price: latest?.price ? String(latest.price) : "",
+      time: latestTime,
       status: "Activo",
-      origin_area: routeData?.config?.origin_city || "",
-      destination_area: routeData?.config?.destination_city || "",
+      origin_area: latest?.origin_area || routeData?.config?.origin_city || "",
+      destination_area: latest?.destination_area || routeData?.config?.destination_city || "",
     });
     setCostRules([]);
     setTimeRules([]);
@@ -509,20 +528,30 @@ function RoutesSection() {
     const days = [] as { key: string; date: Date; cost: number; time: string }[];
     let cursor = new Date(start);
     const baseCost = Number(plannerBase.price) || 0;
+    const rowMap = new Map<string, CalendarRow>();
+    for (const row of calendarRows) {
+      if (row.route_key === plannerRouteKey) {
+        rowMap.set(row.trip_date, row);
+      }
+    }
     while (cursor <= end) {
       const dow = cursor.getDay();
+      const dateKey = cursor.toISOString().slice(0, 10);
+      const existing = rowMap.get(dateKey);
+      const existingCost = existing?.price ? Number(existing.price) : undefined;
+      const existingTime = existing?.departure_time ? existing.departure_time.slice(0, 5) : undefined;
       const costRule = costRules.find((r) => r.days.includes(dow));
       const timeRule = timeRules.find((r) => r.days.includes(dow));
       days.push({
         key: cursor.toISOString(),
         date: new Date(cursor),
-        cost: costRule?.amount ?? baseCost,
-        time: timeRule?.time ?? plannerBase.time,
+        cost: costRule?.amount ?? existingCost ?? baseCost,
+        time: timeRule?.time ?? existingTime ?? plannerBase.time,
       });
       cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
     }
     return days;
-  }, [plannerRange, plannerRouteKey, plannerBase.price, plannerBase.time, costRules, timeRules]);
+  }, [plannerRange, plannerRouteKey, plannerBase.price, plannerBase.time, costRules, timeRules, calendarRows]);
 
   const plannerRoute = plannerRouteKey ? (routes as any)[plannerRouteKey] : null;
   const dayLabel = (d: number) => DAY_OPTIONS.find((opt) => opt.value === d)?.label ?? "";
@@ -585,6 +614,11 @@ function RoutesSection() {
         }
         throw new Error(`Status ${res.status}${detail}`);
       }
+      const refresh = await fetch("/api/turisticos-del-norte/calendar");
+      if (refresh.ok) {
+        const data = await refresh.json();
+        setCalendarRows(data?.calendar ?? []);
+      }
       setPlannerSaved("Calendario actualizado. Puedes seguir ajustando o regresar.");
     } catch (err: any) {
       setPlannerError(`No se pudo guardar. ${err?.message ?? ""}`);
@@ -644,6 +678,25 @@ function RoutesSection() {
       })
         .catch((err: any) => setError(`No se pudo cargar la configuración. ${err?.message ?? ""}`))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const loadCalendar = async () => {
+      setCalendarLoading(true);
+      try {
+        const res = await fetch("/api/turisticos-del-norte/calendar");
+        if (!res.ok) {
+          throw new Error(`Status ${res.status}`);
+        }
+        const data = await res.json();
+        setCalendarRows(data?.calendar ?? []);
+      } catch {
+        setCalendarRows([]);
+      } finally {
+        setCalendarLoading(false);
+      }
+    };
+    loadCalendar();
   }, []);
 
   return (
@@ -1091,9 +1144,24 @@ function RoutesSection() {
                     <div className="text-white font-semibold">Paso 1 · Ruta a modificar</div>
                     <div className="text-[11px] text-zinc-500">Obligatorio</div>
                   </div>
+                  {calendarLoading && (
+                    <div className="text-[11px] text-blue-300">Cargando calendario actual…</div>
+                  )}
                   <select
                     value={plannerRouteKey}
-                    onChange={(e) => setPlannerRouteKey(e.target.value)}
+                    onChange={(e) => {
+                      const nextKey = e.target.value;
+                      setPlannerRouteKey(nextKey);
+                      const latest = getLatestRowForRoute(nextKey);
+                      const nextRoute = (routes as any)[nextKey];
+                      setPlannerBase((p) => ({
+                        ...p,
+                        price: latest?.price ? String(latest.price) : p.price,
+                        time: latest?.departure_time ? latest.departure_time.slice(0, 5) : p.time,
+                        origin_area: latest?.origin_area || nextRoute?.config?.origin_city || p.origin_area,
+                        destination_area: latest?.destination_area || nextRoute?.config?.destination_city || p.destination_area,
+                      }));
+                    }}
                     className="w-full rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
                   >
                     <option value="">Selecciona ruta</option>
