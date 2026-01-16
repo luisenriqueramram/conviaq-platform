@@ -492,23 +492,22 @@ function RoutesSection() {
   );
 }
 
-type MessageTemplate = {
-  key: string;
-  name?: string;
-  channel?: string;
-  body?: string;
-  variables?: string[];
-};
-
 function TemplatesSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
   const [rawSchema, setRawSchema] = useState<any>(null);
   const [debug, setDebug] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", channel: "whatsapp", body: "", variables: "" });
+  const [form, setForm] = useState({
+    key: "",
+    usage_description: "",
+    response_type: "text",
+    client_message: "",
+    media_url: "",
+    maps_url: "",
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -536,8 +535,9 @@ function TemplatesSection() {
           }
         }
         setRawSchema(parsed || {});
-        const templatesData = parsed?.templates || parsed?.message_templates || [];
-        setTemplates(Array.isArray(templatesData) ? templatesData : []);
+        const resourcesObj = parsed?.resources || {};
+        const resourcesArray = Object.entries(resourcesObj).map(([k, v]: any) => ({ key: k, ...(v || {}) }));
+        setTemplates(resourcesArray);
         const preview = typeof schema === "string" ? schema.slice(0, 200) : JSON.stringify(schema).slice(0, 200);
         setDebug(`typeof schema_json: ${typeof schema} · preview: ${preview}`);
         setError(null);
@@ -560,21 +560,16 @@ function TemplatesSection() {
     setSaveError(null);
     try {
       const nextSchema = rawSchema ? { ...rawSchema } : {};
-      const list = Array.isArray(nextSchema.templates) ? [...nextSchema.templates] : Array.isArray(nextSchema.message_templates) ? [...nextSchema.message_templates] : [];
-      const key = form.name.trim() ? form.name.trim().toLowerCase().replace(/\s+/g, "-") : `tpl-${Date.now()}`;
-      const newTpl: MessageTemplate = {
-        key,
-        name: form.name || key,
-        channel: form.channel,
-        body: form.body,
-        variables: form.variables
-          .split(",")
-          .map((v) => v.trim())
-          .filter(Boolean),
+      const resources = { ...(nextSchema.resources || {}) };
+      const key = form.key.trim() ? form.key.trim().toUpperCase().replace(/\s+/g, "_") : `RES_${Date.now()}`;
+      resources[key] = {
+        usage_description: form.usage_description,
+        response_type: form.response_type,
+        client_message: form.client_message,
+        media_url: form.media_url || null,
+        maps_url: form.maps_url || null,
       };
-      const exists = list.find((t: MessageTemplate) => t.key === key);
-      const updated = exists ? list.map((t: MessageTemplate) => (t.key === key ? newTpl : t)) : [...list, newTpl];
-      nextSchema.templates = updated;
+      nextSchema.resources = resources;
       const res = await fetch("/api/turisticos-del-norte/config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -590,9 +585,10 @@ function TemplatesSection() {
         }
         throw new Error(`Status ${res.status}${detail}`);
       }
+      const resourcesArray = Object.entries(resources).map(([k, v]: any) => ({ key: k, ...(v || {}) }));
       setRawSchema(nextSchema);
-      setTemplates(updated);
-      setForm({ name: "", channel: "whatsapp", body: "", variables: "" });
+      setTemplates(resourcesArray);
+      setForm({ key: "", usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
     } catch (err: any) {
       setSaveError(`No se pudo guardar la plantilla. ${err?.message ?? ""}`);
     } finally {
@@ -603,7 +599,7 @@ function TemplatesSection() {
   return (
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-2">Plantillas de Mensajes</h2>
-      <div className="text-zinc-400 mb-2">Se leen desde schema_json de industry_configs (tenant 26).</div>
+      <div className="text-zinc-400 mb-2">Se leen/escriben en schema_json.resources (industry_configs, tenant 26).</div>
       {debug && <div className="text-[11px] text-zinc-600">{debug}</div>}
 
       {loading ? (
@@ -614,24 +610,27 @@ function TemplatesSection() {
         <div className="grid lg:grid-cols-[2fr,1fr] gap-4">
           <div className="space-y-3">
             {templates.length === 0 ? (
-              <div className="text-zinc-500">No hay plantillas configuradas en el schema.</div>
+              <div className="text-zinc-500">No hay recursos/plantillas configuradas.</div>
             ) : (
               <div className="grid md:grid-cols-2 gap-3">
                 {templates.map((tpl) => (
                   <div key={tpl.key} className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 shadow">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <div className="text-white font-semibold">{tpl.name || tpl.key}</div>
-                        <div className="text-xs text-blue-300">Key: {tpl.key}</div>
+                        <div className="text-white font-semibold">{tpl.usage_description || tpl.key}</div>
+                        <div className="text-xs text-blue-300 font-mono">{tpl.key}</div>
                       </div>
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-900/30 text-blue-200">{tpl.channel || "whatsapp"}</span>
+                      <span className="px-2 py-1 rounded-full text-xs bg-blue-900/30 text-blue-200">{tpl.response_type || "text"}</span>
                     </div>
-                    <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                      {tpl.body || "(sin cuerpo)"}
-                    </div>
-                    {tpl.variables?.length ? (
-                      <div className="mt-2 text-xs text-zinc-500">Variables: {tpl.variables.join(", ")}</div>
-                    ) : null}
+                    {tpl.client_message && (
+                      <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed mb-2">{tpl.client_message}</div>
+                    )}
+                    {tpl.media_url && (
+                      <a href={tpl.media_url} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-300 underline">Ver media</a>
+                    )}
+                    {tpl.maps_url && (
+                      <a href={tpl.maps_url} target="_blank" rel="noopener noreferrer" className="ml-3 text-xs text-cyan-300 underline">Ver mapa</a>
+                    )}
                   </div>
                 ))}
               </div>
@@ -641,37 +640,48 @@ function TemplatesSection() {
           <div className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 space-y-3">
             <div>
               <div className="text-white font-semibold">Agregar/Actualizar plantilla</div>
-              <div className="text-xs text-zinc-500">Se guarda en schema_json.templates</div>
+              <div className="text-xs text-zinc-500">Se guarda en schema_json.resources (key en MAYÚSCULAS)</div>
             </div>
             <form className="space-y-2" onSubmit={handleAdd}>
               <input
                 required
-                placeholder="Nombre visible"
-                value={form.name}
-                onChange={(e) => handleFormChange("name", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
-              <select
-                value={form.channel}
-                onChange={(e) => handleFormChange("channel", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-              >
-                <option value="whatsapp">WhatsApp</option>
-                <option value="sms">SMS</option>
-                <option value="email">Email</option>
-              </select>
-              <textarea
-                required
-                rows={6}
-                placeholder="Cuerpo del mensaje"
-                value={form.body}
-                onChange={(e) => handleFormChange("body", e.target.value)}
+                placeholder="Clave (ej. INFO_PAGO)"
+                value={form.key}
+                onChange={(e) => handleFormChange("key", e.target.value)}
                 className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
               <input
-                placeholder="Variables separadas por coma (ej. nombre,fecha,ruta)"
-                value={form.variables}
-                onChange={(e) => handleFormChange("variables", e.target.value)}
+                placeholder="Descripción de uso"
+                value={form.usage_description}
+                onChange={(e) => handleFormChange("usage_description", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <select
+                value={form.response_type}
+                onChange={(e) => handleFormChange("response_type", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              >
+                <option value="text">Texto</option>
+                <option value="image">Imagen</option>
+                <option value="location_image">Ubicación + imagen</option>
+              </select>
+              <textarea
+                rows={5}
+                placeholder="Mensaje al cliente"
+                value={form.client_message}
+                onChange={(e) => handleFormChange("client_message", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                placeholder="Media URL (opcional)"
+                value={form.media_url}
+                onChange={(e) => handleFormChange("media_url", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                placeholder="Maps URL (opcional)"
+                value={form.maps_url}
+                onChange={(e) => handleFormChange("maps_url", e.target.value)}
                 className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
               {saveError && <div className="text-red-400 text-sm">{saveError}</div>}
