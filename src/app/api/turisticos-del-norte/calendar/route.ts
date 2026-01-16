@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 
 const TENANT_ID = 26;
 
+const FIELDS = "id, route_key, trip_date, departure_time, price, status, origin_area, destination_area, metadata";
+
 // GET: Listar salidas programadas
 export async function GET() {
   try {
@@ -12,7 +14,7 @@ export async function GET() {
       return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
     }
     const res = await db.query(
-      `SELECT id, route_key, trip_date, departure_time, price, status FROM tours_calendar WHERE tenant_id = $1 ORDER BY trip_date DESC, departure_time DESC`,
+      `SELECT ${FIELDS} FROM tours_calendar WHERE tenant_id = $1 ORDER BY trip_date DESC, departure_time DESC`,
       [TENANT_ID]
     );
     return NextResponse.json({ ok: true, calendar: res.rows });
@@ -30,13 +32,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
     }
     const body = await req.json();
-    const { route_key, trip_date, departure_time, price, status } = body;
+    const { route_key, trip_date, departure_time, price, status, origin_area, destination_area, metadata } = body;
     if (!route_key || !trip_date || !departure_time || !price || !status) {
       return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
     }
+    const numericPrice = Number(price);
+    if (Number.isNaN(numericPrice)) {
+      return NextResponse.json({ error: "INVALID_PRICE" }, { status: 400 });
+    }
     const res = await db.query(
-      `INSERT INTO tours_calendar (tenant_id, route_key, trip_date, departure_time, price, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, route_key, trip_date, departure_time, price, status`,
-      [TENANT_ID, route_key, trip_date, departure_time, price, status]
+      `INSERT INTO tours_calendar (tenant_id, route_key, trip_date, departure_time, price, status, origin_area, destination_area, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING ${FIELDS}`,
+      [TENANT_ID, route_key, trip_date, departure_time, numericPrice, status, origin_area || null, destination_area || null, metadata || null]
     );
     return NextResponse.json({ ok: true, salida: res.rows[0] });
   } catch (error) {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -47,13 +47,335 @@ export default function TuristicosDelNortePanel() {
   );
 }
 
+type CalendarRow = {
+  id: number;
+  route_key: string;
+  trip_date: string;
+  departure_time: string;
+  price: string | number;
+  status: string;
+  origin_area?: string | null;
+  destination_area?: string | null;
+  metadata?: any;
+};
+
 function CalendarSection() {
-  // TODO: Implementar tabla y formulario de salidas
+  const [rows, setRows] = useState<CalendarRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState({ route: "", status: "", start: "", end: "" });
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    route_key: "",
+    trip_date: "",
+    departure_time: "",
+    price: "",
+    status: "Activo",
+    origin_area: "",
+    destination_area: "",
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/turisticos-del-norte/calendar");
+        if (!res.ok) {
+          let detail = "";
+          try {
+            const j = await res.json();
+            detail = j ? ` · ${JSON.stringify(j)}` : "";
+          } catch (e) {
+            detail = "";
+          }
+          throw new Error(`Status ${res.status}${detail}`);
+        }
+        const data = await res.json();
+        setRows(data?.calendar ?? []);
+        setError(null);
+      } catch (err: any) {
+        setError(`No se pudo cargar el calendario. ${err?.message ?? ""}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const formatDate = (d: string) => {
+    try {
+      return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeZone: "America/Mexico_City" }).format(new Date(d));
+    } catch {
+      return d;
+    }
+  };
+
+  const formatTime = (t: string) => {
+    const [h, m] = t.split(":");
+    if (!h || !m) return t;
+    const d = new Date();
+    d.setHours(Number(h));
+    d.setMinutes(Number(m));
+    return new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(d);
+  };
+
+  const compareRowsDesc = (a: CalendarRow, b: CalendarRow) => {
+    const da = new Date(`${a.trip_date}T${a.departure_time}`);
+    const db = new Date(`${b.trip_date}T${b.departure_time}`);
+    return db.getTime() - da.getTime();
+  };
+
+  const filteredRows = useMemo(() => {
+    return rows
+      .filter((r) => (filters.status ? r.status === filters.status : true))
+      .filter((r) => (filters.route ? r.route_key.toLowerCase().includes(filters.route.toLowerCase()) : true))
+      .filter((r) => (filters.start ? r.trip_date >= filters.start : true))
+      .filter((r) => (filters.end ? r.trip_date <= filters.end : true))
+      .sort(compareRowsDesc);
+  }, [rows, filters]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const handleChange = (field: string, value: string) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+    setPage(1);
+  };
+
+  const handleFormChange = (field: string, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/turisticos-del-norte/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          route_key: form.route_key,
+          trip_date: form.trip_date,
+          departure_time: form.departure_time,
+          price: Number(form.price),
+          status: form.status,
+          origin_area: form.origin_area || null,
+          destination_area: form.destination_area || null,
+        }),
+      });
+      if (!res.ok) {
+        let detail = "";
+        try {
+          const j = await res.json();
+          detail = j ? ` · ${JSON.stringify(j)}` : "";
+        } catch (e) {
+          detail = "";
+        }
+        throw new Error(`Status ${res.status}${detail}`);
+      }
+      const data = await res.json();
+      if (data?.salida) {
+        setRows((prev) => [data.salida, ...prev].sort(compareRowsDesc));
+        setPage(1);
+        setForm((prev) => ({ ...prev, route_key: "", trip_date: "", departure_time: "", price: "" }));
+      }
+    } catch (err: any) {
+      setCreateError(`No se pudo crear la salida. ${err?.message ?? ""}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
-      <h2 className="text-2xl font-bold text-white mb-4">Calendario de Salidas</h2>
-      <div className="text-zinc-400">Aquí podrás ver y programar las salidas de tus rutas turísticas.</div>
-      {/* Tabla y formulario van aquí */}
+      <h2 className="text-2xl font-bold text-white mb-2">Calendario de Salidas</h2>
+      <div className="text-zinc-400 mb-4">Aquí podrás ver y programar las salidas de tus rutas turísticas.</div>
+
+      <div className="grid lg:grid-cols-[2fr,1fr] gap-4">
+        <div className="space-y-3">
+          <div className="grid md:grid-cols-4 gap-2">
+            <input
+              type="text"
+              placeholder="Buscar por ruta"
+              value={filters.route}
+              onChange={(e) => handleChange("route", e.target.value)}
+              className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+            />
+            <select
+              value={filters.status}
+              onChange={(e) => handleChange("status", e.target.value)}
+              className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Todos los estatus</option>
+              <option value="Activo">Activo</option>
+              <option value="Suspendido">Suspendido</option>
+              <option value="Cancelado">Cancelado</option>
+            </select>
+            <input
+              type="date"
+              value={filters.start}
+              onChange={(e) => handleChange("start", e.target.value)}
+              className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+            />
+            <input
+              type="date"
+              value={filters.end}
+              onChange={(e) => handleChange("end", e.target.value)}
+              className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          {loading ? (
+            <div className="text-blue-300">Cargando calendario…</div>
+          ) : error ? (
+            <div className="text-red-400">{error}</div>
+          ) : filteredRows.length === 0 ? (
+            <div className="text-zinc-500">No hay salidas registradas con estos filtros.</div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-blue-900/30 bg-zinc-900/50">
+              <table className="min-w-full text-sm text-left text-zinc-200">
+                <thead className="bg-zinc-900/60 text-xs uppercase text-zinc-400">
+                  <tr>
+                    <th className="px-4 py-3">Ruta</th>
+                    <th className="px-4 py-3">Fecha</th>
+                    <th className="px-4 py-3">Hora</th>
+                    <th className="px-4 py-3">Origen → Destino</th>
+                    <th className="px-4 py-3">Precio</th>
+                    <th className="px-4 py-3">Estatus</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {pageRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-white/5 transition">
+                      <td className="px-4 py-3 font-semibold text-white">{row.route_key}</td>
+                      <td className="px-4 py-3">{formatDate(row.trip_date)}</td>
+                      <td className="px-4 py-3">{formatTime(row.departure_time)}</td>
+                      <td className="px-4 py-3 text-zinc-300">
+                        {row.origin_area || "-"} → {row.destination_area || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-blue-200 font-semibold">${Number(row.price).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3">
+                        <span className={cn(
+                          "px-2 py-1 rounded-full text-xs font-semibold",
+                          row.status === "Activo"
+                            ? "bg-green-500/20 text-green-200 border border-green-500/30"
+                            : row.status === "Cancelado"
+                              ? "bg-red-500/20 text-red-200 border border-red-500/30"
+                              : "bg-amber-500/20 text-amber-200 border border-amber-500/30"
+                        )}>
+                          {row.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-sm text-zinc-400">
+            <div>
+              Mostrando {Math.min(filteredRows.length, (page - 1) * PAGE_SIZE + 1)}-
+              {Math.min(filteredRows.length, page * PAGE_SIZE)} de {filteredRows.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1 rounded-lg bg-zinc-900/70 border border-blue-900/30 text-white disabled:opacity-40"
+              >
+                ← Anterior
+              </button>
+              <span className="text-xs text-zinc-500">Página {page} / {totalPages}</span>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="px-3 py-1 rounded-lg bg-zinc-900/70 border border-blue-900/30 text-white disabled:opacity-40"
+              >
+                Siguiente →
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-white font-semibold">Agregar salida</div>
+              <div className="text-xs text-zinc-500">Carga rápida con ruta, fecha, hora y precio.</div>
+            </div>
+          </div>
+          <form className="space-y-2" onSubmit={handleCreate}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <input
+                required
+                placeholder="Ruta (ej. MZT-DF)"
+                value={form.route_key}
+                onChange={(e) => handleFormChange("route_key", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                required
+                type="date"
+                value={form.trip_date}
+                onChange={(e) => handleFormChange("trip_date", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                required
+                type="time"
+                value={form.departure_time}
+                onChange={(e) => handleFormChange("departure_time", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                required
+                type="number"
+                step="0.01"
+                placeholder="Precio"
+                value={form.price}
+                onChange={(e) => handleFormChange("price", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                placeholder="Origen"
+                value={form.origin_area}
+                onChange={(e) => handleFormChange("origin_area", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                placeholder="Destino"
+                value={form.destination_area}
+                onChange={(e) => handleFormChange("destination_area", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <select
+                value={form.status}
+                onChange={(e) => handleFormChange("status", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              >
+                <option value="Activo">Activo</option>
+                <option value="Suspendido">Suspendido</option>
+                <option value="Cancelado">Cancelado</option>
+              </select>
+            </div>
+
+            {createError && <div className="text-red-400 text-sm">{createError}</div>}
+
+            <button
+              type="submit"
+              disabled={creating}
+              className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold py-2 shadow-lg disabled:opacity-50"
+            >
+              {creating ? "Guardando…" : "Guardar salida"}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
