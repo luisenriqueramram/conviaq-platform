@@ -908,8 +908,10 @@ function TemplatesSection() {
   const [saved, setSaved] = useState<string>("");
   const [dirty, setDirty] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState("");
   const [mediaPreview, setMediaPreview] = useState("");
+  const [removeExisting, setRemoveExisting] = useState(false);
   const [search, setSearch] = useState("");
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
@@ -932,6 +934,8 @@ function TemplatesSection() {
     setSaveError(null);
     setUploadSuccess("");
     setMediaPreview("");
+    setPendingFile(null);
+    setRemoveExisting(false);
   };
 
   const closeModal = () => {
@@ -1006,16 +1010,30 @@ function TemplatesSection() {
         setSaving(false);
         return;
       }
-      if (form.response_type !== "text" && !form.media_url) {
-        setSaveError("Sube un archivo para esta plantilla");
-        setSaving(false);
-        return;
-      }
       if (linkEnabled && !form.maps_url.trim()) {
         setSaveError("Agrega el link de ubicación");
         setSaving(false);
         return;
       }
+      let mediaUrl = form.media_url;
+      let mediaPath = form.media_path;
+      const prevPath = form.media_path;
+
+      if (pendingFile) {
+        setUploading(true);
+        const uploaded = await uploadFile(pendingFile);
+        mediaUrl = uploaded.url;
+        mediaPath = uploaded.path || "";
+        if (prevPath && prevPath !== mediaPath) {
+          await deleteMediaFromStorage(prevPath);
+        }
+        setUploading(false);
+      } else if (removeExisting && prevPath) {
+        await deleteMediaFromStorage(prevPath);
+        mediaUrl = "";
+        mediaPath = "";
+      }
+
       const nextSchema = rawSchema ? { ...rawSchema } : {};
       const resources = { ...(nextSchema.resources || {}) };
       const candidate = form.usage_description || form.client_message || "";
@@ -1032,8 +1050,8 @@ function TemplatesSection() {
         usage_description: form.usage_description,
         response_type: form.response_type,
         client_message: form.client_message,
-        media_url: form.media_url || null,
-        media_path: form.media_path || null,
+        media_url: mediaUrl || null,
+        media_path: mediaPath || null,
         maps_url: linkEnabled ? (form.maps_url || null) : null,
         active: existing.active ?? true,
       };
@@ -1044,6 +1062,9 @@ function TemplatesSection() {
       setLinkEnabled(false);
       setDirty(false);
       setShowTemplateModal(false);
+      setPendingFile(null);
+      setMediaPreview("");
+      setRemoveExisting(false);
       setSaved("Plantilla guardada");
     } catch (err: any) {
       setSaveError(`No se pudo guardar la plantilla. ${err?.message ?? ""}`);
@@ -1215,12 +1236,13 @@ function TemplatesSection() {
                       <button
                         type="button"
                         className="text-red-300"
-                        onClick={async () => {
-                          const prev = form.media_path;
+                        onClick={() => {
                           setForm((p) => ({ ...p, media_url: "", media_path: "" }));
                           setDirty(true);
                           setMediaPreview("");
-                          if (prev) await deleteMediaFromStorage(prev);
+                          setPendingFile(null);
+                          setUploadSuccess("");
+                          setRemoveExisting(true);
                         }}
                       >
                         Quitar
@@ -1229,7 +1251,7 @@ function TemplatesSection() {
                   )}
                 </div>
 
-                {form.media_url && form.response_type === "text" ? (
+                {(mediaPreview || form.media_url) && form.response_type === "text" ? (
                   (() => {
                     const imgSrc = mediaPreview || form.media_url;
                     const looksImage = mediaPreview ? true : isImageUrl(form.media_url) || isImageUrl(form.media_path || "");
@@ -1240,6 +1262,7 @@ function TemplatesSection() {
                             src={imgSrc}
                             alt="media"
                             className="max-h-64 w-full object-contain"
+                            onError={() => setMediaPreview("")}
                           />
                         </div>
                       );
@@ -1260,32 +1283,17 @@ function TemplatesSection() {
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
-                    setUploading(true);
                     setSaveError(null);
+                    setPendingFile(file);
                     if (file.type?.startsWith("image")) {
                       const objUrl = URL.createObjectURL(file);
                       setMediaPreview(objUrl);
                     } else {
                       setMediaPreview("");
                     }
-                    setUploadSuccess("");
-                    const prevPath = form.media_path;
-                    try {
-                      const uploaded = await uploadFile(file);
-                      if (file.type?.startsWith("image")) {
-                        setMediaPreview(uploaded.url);
-                      }
-                      setForm((p) => ({ ...p, media_url: uploaded.url, media_path: uploaded.path || "" }));
-                      setDirty(true);
-                      setUploadSuccess("Archivo subido");
-                      if (prevPath) {
-                        await deleteMediaFromStorage(prevPath);
-                      }
-                    } catch (err: any) {
-                      setSaveError(err?.message || "No se pudo subir el archivo");
-                    } finally {
-                      setUploading(false);
-                    }
+                    setUploadSuccess("Listo para guardar");
+                    setDirty(true);
+                    setRemoveExisting(false);
                     // limpia para permitir volver a subir el mismo archivo si se desea
                     if (e.target) (e.target as HTMLInputElement).value = "";
                   }}
@@ -1348,6 +1356,8 @@ function TemplatesSection() {
     setLinkEnabled(!!tpl.maps_url);
     setDirty(false);
     setSaveError(null);
+    setPendingFile(null);
+    setRemoveExisting(false);
     const maybePreview = tpl.media_url && (isImageUrl(tpl.media_url) || isImageUrl(tpl.media_path || "")) ? tpl.media_url : "";
     setMediaPreview(maybePreview);
     setShowTemplateModal(true);
@@ -1359,14 +1369,16 @@ function TemplatesSection() {
       usage_description: `${tpl.usage_description || tpl.key} copia`,
       response_type: tpl.response_type || "text",
       client_message: tpl.client_message || "",
-      media_url: tpl.media_url || "",
-      media_path: tpl.media_path || "",
+      media_url: "",
+      media_path: "",
       maps_url: tpl.maps_url || "",
     });
     setLinkEnabled(!!tpl.maps_url);
     setSaveError(null);
     setDirty(true);
-    const maybePreview = tpl.media_url && (isImageUrl(tpl.media_url) || isImageUrl(tpl.media_path || "")) ? tpl.media_url : "";
+    setPendingFile(null);
+    setRemoveExisting(false);
+    const maybePreview = "";
     setMediaPreview(maybePreview);
     setShowTemplateModal(true);
   }
