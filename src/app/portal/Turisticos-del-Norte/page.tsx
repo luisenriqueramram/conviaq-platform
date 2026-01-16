@@ -76,6 +76,7 @@ function CalendarSection() {
   const [filters, setFilters] = useState({ route: "", status: "", start: "", end: "" });
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [routeOptions, setRouteOptions] = useState<Array<{ key: string; label: string }>>([]);
+  const [selectedDateKey, setSelectedDateKey] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -198,6 +199,12 @@ function CalendarSection() {
   const firstDay = monthStart.getDay();
   const emptyDays = Array.from({ length: firstDay }, (_, i) => i);
   const monthDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  const getRouteLabel = (routeKey: string) => {
+    const found = routeOptions.find((opt) => opt.key === routeKey);
+    return found?.label || routeKey;
+  };
 
   const monthRows = useMemo(() => {
     const map = new Map<string, CalendarRow[]>();
@@ -214,6 +221,31 @@ function CalendarSection() {
     }
     return map;
   }, [filteredRows, calendarMonth]);
+
+  const routeColorMap = useMemo(() => {
+    const palette = [
+      { pill: "bg-cyan-500/20 border-cyan-400/60 text-cyan-100", dot: "bg-cyan-400" },
+      { pill: "bg-emerald-500/20 border-emerald-400/60 text-emerald-100", dot: "bg-emerald-400" },
+      { pill: "bg-amber-500/20 border-amber-400/60 text-amber-100", dot: "bg-amber-400" },
+      { pill: "bg-violet-500/20 border-violet-400/60 text-violet-100", dot: "bg-violet-400" },
+      { pill: "bg-fuchsia-500/20 border-fuchsia-400/60 text-fuchsia-100", dot: "bg-fuchsia-400" },
+      { pill: "bg-sky-500/20 border-sky-400/60 text-sky-100", dot: "bg-sky-400" },
+      { pill: "bg-rose-500/20 border-rose-400/60 text-rose-100", dot: "bg-rose-400" },
+      { pill: "bg-lime-500/20 border-lime-400/60 text-lime-100", dot: "bg-lime-400" },
+    ];
+    const keys = routeOptions.length
+      ? routeOptions.map((r) => r.key)
+      : Array.from(new Set(rows.map((r) => r.route_key)));
+    const map = new Map<string, { pill: string; dot: string }>();
+    keys.forEach((key, idx) => {
+      map.set(key, palette[idx % palette.length]);
+    });
+    return map;
+  }, [routeOptions, rows]);
+
+  const getRouteColor = (routeKey: string) => routeColorMap.get(routeKey)?.pill || "bg-zinc-700/20 border-zinc-500/60 text-zinc-200";
+  const getRouteDot = (routeKey: string) => routeColorMap.get(routeKey)?.dot || "bg-zinc-500";
+  const selectedRows = selectedDateKey ? (monthRows.get(selectedDateKey) ?? []) : [];
 
   useEffect(() => {
     setCalendarMonth(new Date());
@@ -267,7 +299,8 @@ function CalendarSection() {
   };
 
   return (
-    <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
+    <>
+      <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-2">Calendario de Salidas</h2>
       <div className="text-zinc-400 mb-4">Aquí podrás ver y programar las salidas de tus rutas turísticas.</div>
 
@@ -323,6 +356,12 @@ function CalendarSection() {
                 <div className="flex items-center gap-2">
                   <button
                     className="px-3 py-1 rounded-lg bg-zinc-900/70 border border-blue-900/30 text-white"
+                    onClick={() => setCalendarMonth(new Date())}
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    className="px-3 py-1 rounded-lg bg-zinc-900/70 border border-blue-900/30 text-white"
                     onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
                   >
                     ←
@@ -355,8 +394,17 @@ function CalendarSection() {
                     const visible = dayRows.slice(0, 3);
                     const extra = dayRows.length - visible.length;
                     return (
-                      <div key={dateKey} className="min-h-[110px] rounded-xl border border-blue-900/30 bg-zinc-950/60 p-2 space-y-2">
-                        <div className="text-xs text-zinc-400 font-semibold">{day}</div>
+                      <button
+                        type="button"
+                        key={dateKey}
+                        onClick={() => setSelectedDateKey(dateKey)}
+                        className={cn(
+                          "min-h-[110px] rounded-xl border bg-zinc-950/60 p-2 space-y-2 text-left transition",
+                          dateKey === todayKey ? "border-cyan-400/70 shadow-[0_0_0_1px_rgba(34,211,238,0.35)]" : "border-blue-900/30",
+                          selectedDateKey === dateKey ? "ring-1 ring-cyan-400/40" : ""
+                        )}
+                      >
+                        <div className={cn("text-xs font-semibold", dateKey === todayKey ? "text-cyan-200" : "text-zinc-400")}>{day}</div>
                         {visible.length === 0 ? (
                           <div className="text-[10px] text-zinc-600">Sin salidas</div>
                         ) : (
@@ -364,7 +412,10 @@ function CalendarSection() {
                             {visible.map((row) => (
                               <div key={row.id} className="rounded-lg border border-blue-900/30 bg-zinc-900/70 px-2 py-1">
                                 <div className="flex items-center justify-between text-[10px] text-zinc-300">
-                                  <span className="font-semibold text-zinc-100">{row.route_key}</span>
+                                  <span className="flex items-center gap-2 font-semibold text-zinc-100 truncate">
+                                    <span className={cn("h-2 w-2 rounded-full", getRouteDot(row.route_key))} />
+                                    {getRouteLabel(row.route_key)}
+                                  </span>
                                   <span>{formatTime(row.departure_time)}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-[10px] text-zinc-400">
@@ -387,7 +438,7 @@ function CalendarSection() {
                             )}
                           </div>
                         )}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -396,7 +447,67 @@ function CalendarSection() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+
+      {selectedDateKey && (
+      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm">
+        <div className="absolute right-0 top-0 h-full w-full max-w-md bg-zinc-950 border-l border-blue-900/40 shadow-2xl p-6 flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-400">Detalle del día</div>
+              <div className="text-lg font-semibold text-white">{selectedDateKey}</div>
+              <div className="text-xs text-zinc-500">Salidas programadas y estatus</div>
+            </div>
+            <button
+              type="button"
+              className="rounded-full border border-zinc-700 px-3 py-1 text-zinc-200"
+              onClick={() => setSelectedDateKey("")}
+            >
+              Cerrar
+            </button>
+          </div>
+
+          <div className="space-y-3 overflow-y-auto pr-1">
+            {selectedRows.length === 0 ? (
+              <div className="text-sm text-zinc-500">No hay salidas en este día.</div>
+            ) : (
+              selectedRows
+                .slice()
+                .sort((a, b) => a.departure_time.localeCompare(b.departure_time))
+                .map((row) => (
+                  <div key={row.id} className="rounded-xl border border-blue-900/30 bg-zinc-900/70 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-white font-semibold">
+                        <span className={cn("h-2.5 w-2.5 rounded-full", getRouteDot(row.route_key))} />
+                        {getRouteLabel(row.route_key)}
+                      </div>
+                      <span className="text-xs text-zinc-400">{formatTime(row.departure_time)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-zinc-400">
+                      <span>{row.origin_area || "-"} → {row.destination_area || "-"}</span>
+                      <span className="text-sm font-semibold text-blue-200">${formatCurrency(row.price)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className={cn("px-2 py-[1px] rounded-full border", getRouteColor(row.route_key))}>Ruta</span>
+                      <span className={cn(
+                        "px-2 py-[1px] rounded-full",
+                        row.status === "Activo"
+                          ? "bg-green-500/20 text-green-200 border border-green-500/30"
+                          : row.status === "Cancelado"
+                            ? "bg-red-500/20 text-red-200 border border-red-500/30"
+                            : "bg-amber-500/20 text-amber-200 border border-amber-500/30"
+                      )}>
+                        {row.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        </div>
+      </div>
+      )}
+    </>
   );
 }
 
@@ -788,6 +899,11 @@ function RoutesSection() {
                         try {
                           const next = { ...(rawSchema || {}), routes: { ...(rawSchema?.routes || {}) } };
                           delete next.routes[key];
+                          await fetch("/api/turisticos-del-norte/calendar", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ route_key: String(key) }),
+                          });
                           await saveRoutes(next);
                         } catch (e) {
                           setError("No se pudo eliminar la ruta");
