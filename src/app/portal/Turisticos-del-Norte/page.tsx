@@ -13,7 +13,7 @@ export default function TuristicosDelNortePanel() {
   const [tab, setTab] = useState("calendar");
 
   return (
-    <div className="min-h-screen w-full bg-zinc-950 p-8 flex flex-col gap-8">
+    <div className="min-h-screen w-full bg-zinc-950 p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-2">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight mb-1">Turísticos del Norte</h1>
@@ -300,13 +300,13 @@ function CalendarSection() {
 
   return (
     <>
-      <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
+      <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-4 sm:p-6 lg:p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-2">Calendario de Salidas</h2>
         <div className="text-zinc-400">Visualiza salidas por día. Haz clic en una fecha para ver detalles y costos.</div>
 
       <div className="grid gap-4">
         <div className="space-y-4">
-          <div className="grid md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <select
               value={filters.route}
               onChange={(e) => handleChange("route", e.target.value)}
@@ -392,12 +392,6 @@ function CalendarSection() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-2 text-xs text-zinc-500">
-                {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((d) => (
-                  <div key={d} className="text-center">{d}</div>
-                ))}
-              </div>
-
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
                 <span className="text-zinc-500">Leyenda:</span>
                 <span className="px-2 py-[2px] rounded-full bg-green-500/20 text-green-200 border border-green-500/30">Activo</span>
@@ -405,74 +399,84 @@ function CalendarSection() {
                 <span className="px-2 py-[2px] rounded-full bg-red-500/20 text-red-200 border border-red-500/30">Cancelado</span>
               </div>
 
-              {filteredRows.length === 0 ? (
-                <div className="text-zinc-500">No hay salidas registradas con estos filtros.</div>
-              ) : (
-                <div className="grid grid-cols-7 gap-2">
-                  {emptyDays.map((i) => (
-                    <div key={`empty-${i}`} className="min-h-[110px] rounded-xl border border-transparent" />
-                  ))}
-                  {monthDays.map((day) => {
-                    const dateKey = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                    const dayRows = monthRows.get(dateKey) ?? [];
-                    const visible = dayRows.slice(0, 3);
-                    const extra = dayRows.length - visible.length;
-                    return (
-                      <button
-                        type="button"
-                        key={dateKey}
-                        onClick={() => setSelectedDateKey(dateKey)}
-                        className={cn(
-                          "min-h-[110px] rounded-xl border bg-zinc-950/60 p-2 space-y-2 text-left transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-md",
-                          dateKey === todayKey ? "border-cyan-400/70 shadow-[0_0_0_1px_rgba(34,211,238,0.35)]" : "border-blue-900/30",
-                          selectedDateKey === dateKey ? "ring-1 ring-cyan-400/40" : ""
-                        )}
-                      >
-                        <div className={cn("text-xs font-semibold", dateKey === todayKey ? "text-cyan-200" : "text-zinc-400")}>{day}</div>
-                        {visible.length === 0 ? (
-                          <div className="text-[10px] text-zinc-600">Sin salidas</div>
-                        ) : (
-                          <div className="space-y-1">
-                            {visible.map((row) => (
-                              <div key={row.id} className="rounded-lg border border-blue-900/30 bg-zinc-900/70 px-2 py-1 transition-all duration-200 hover:border-blue-500/50 hover:bg-zinc-900/90">
-                                <div className="flex items-center justify-between text-[10px] text-zinc-300">
-                                  <span className="flex items-center gap-2 font-semibold text-zinc-100 truncate">
-                                    <span className={cn("h-2 w-2 rounded-full", getRouteDot(row.route_key))} />
-                                    {getRouteLabel(row.route_key)}
-                                  </span>
-                                  <span>{formatTime(row.departure_time)}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                                  <span>${formatCurrency(row.price)}</span>
-                                  <span className={cn(
-                                    "px-2 py-[1px] rounded-full",
-                                    row.status === "Activo"
-                                      ? "bg-green-500/20 text-green-200 border border-green-500/30"
-                                      : row.status === "Cancelado"
-                                        ? "bg-red-500/20 text-red-200 border border-red-500/30"
-                                        : "bg-amber-500/20 text-amber-200 border border-amber-500/30"
-                                  )}>
-                                    {row.status}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                            {extra > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => setSelectedDateKey(dateKey)}
-                                className="text-[10px] text-cyan-300"
-                              >
-                                +{extra} más
-                              </button>
+              <div className="overflow-x-auto">
+                <div className="min-w-[720px]">
+                  <div className="grid grid-cols-7 gap-2 text-xs text-zinc-500">
+                    {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((d) => (
+                      <div key={d} className="text-center">{d}</div>
+                    ))}
+                  </div>
+
+                  {filteredRows.length === 0 ? (
+                    <div className="text-zinc-500">No hay salidas registradas con estos filtros.</div>
+                  ) : (
+                    <div className="grid grid-cols-7 gap-2">
+                      {emptyDays.map((i) => (
+                        <div key={`empty-${i}`} className="min-h-[96px] sm:min-h-[110px] rounded-xl border border-transparent" />
+                      ))}
+                      {monthDays.map((day) => {
+                        const dateKey = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                        const dayRows = monthRows.get(dateKey) ?? [];
+                        const visible = dayRows.slice(0, 3);
+                        const extra = dayRows.length - visible.length;
+                        return (
+                          <button
+                            type="button"
+                            key={dateKey}
+                            onClick={() => setSelectedDateKey(dateKey)}
+                            className={cn(
+                              "min-h-[96px] sm:min-h-[110px] rounded-xl border bg-zinc-950/60 p-2 space-y-2 text-left transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-md",
+                              dateKey === todayKey ? "border-cyan-400/70 shadow-[0_0_0_1px_rgba(34,211,238,0.35)]" : "border-blue-900/30",
+                              selectedDateKey === dateKey ? "ring-1 ring-cyan-400/40" : ""
                             )}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                          >
+                            <div className={cn("text-xs font-semibold", dateKey === todayKey ? "text-cyan-200" : "text-zinc-400")}>{day}</div>
+                            {visible.length === 0 ? (
+                              <div className="text-[10px] text-zinc-600">Sin salidas</div>
+                            ) : (
+                              <div className="space-y-1">
+                                {visible.map((row) => (
+                                  <div key={row.id} className="rounded-lg border border-blue-900/30 bg-zinc-900/70 px-2 py-1 transition-all duration-200 hover:border-blue-500/50 hover:bg-zinc-900/90">
+                                    <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                                      <span className="flex items-center gap-2 font-semibold text-zinc-100 truncate">
+                                        <span className={cn("h-2 w-2 rounded-full", getRouteDot(row.route_key))} />
+                                        {getRouteLabel(row.route_key)}
+                                      </span>
+                                      <span>{formatTime(row.departure_time)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                                      <span>${formatCurrency(row.price)}</span>
+                                      <span className={cn(
+                                        "px-2 py-[1px] rounded-full",
+                                        row.status === "Activo"
+                                          ? "bg-green-500/20 text-green-200 border border-green-500/30"
+                                          : row.status === "Cancelado"
+                                            ? "bg-red-500/20 text-red-200 border border-red-500/30"
+                                            : "bg-amber-500/20 text-amber-200 border border-amber-500/30"
+                                      )}>
+                                        {row.status}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                                {extra > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedDateKey(dateKey)}
+                                    className="text-[10px] text-cyan-300"
+                                  >
+                                    +{extra} más
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
@@ -481,7 +485,7 @@ function CalendarSection() {
 
       {selectedDateKey && (
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm">
-        <div className="absolute right-0 top-0 h-full w-full max-w-md bg-zinc-950 border-l border-blue-900/40 shadow-2xl p-6 flex flex-col">
+        <div className="absolute right-0 top-0 h-full w-full md:max-w-md bg-zinc-950 border-l border-blue-900/40 shadow-2xl p-4 sm:p-6 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="text-xs uppercase tracking-[0.2em] text-cyan-400">Detalle del día</div>
@@ -861,7 +865,7 @@ function RoutesSection() {
   }, []);
 
   return (
-    <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
+    <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-4 sm:p-6 lg:p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-4">Configuración de Rutas</h2>
       <div className="text-zinc-400 mb-4">Crea rutas y define paradas. Usa “Planificar salidas” para programar horarios y costos.</div>
       {routeSaved && (
@@ -1848,7 +1852,7 @@ function TemplatesSection() {
   };
 
   return (
-    <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
+    <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-4 sm:p-6 lg:p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-2">Plantillas de Mensajes</h2>
       <div className="text-zinc-400 mb-2">Crea mensajes con texto e imagen. Úsalos para respuestas rápidas y consistentes.</div>
       {saved && (
