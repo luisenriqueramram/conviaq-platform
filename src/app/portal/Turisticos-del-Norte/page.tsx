@@ -145,7 +145,7 @@ function CalendarSection() {
     setPage(1);
   };
 
-  const handleFormChange = (field: string, value: string) => {
+  const handleFormChange = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -386,9 +386,23 @@ function RoutesSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [routes, setRoutes] = useState<any>({});
+  const [rawSchema, setRawSchema] = useState<any>(null);
   const [info, setInfo] = useState<string>("");
   const [debugSchema, setDebugSchema] = useState<string>("");
   const [currentTenant, setCurrentTenant] = useState<string>("");
+  const [editingKey, setEditingKey] = useState<string>("");
+  const [routeForm, setRouteForm] = useState({
+    key: "",
+    code: "",
+    name: "",
+    origin_city: "",
+    destination_city: "",
+    calculate_times: false,
+    active: true,
+    stopsText: "[]",
+  });
+  const [routeSaving, setRouteSaving] = useState(false);
+  const [routeSaveError, setRouteSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -427,6 +441,7 @@ function RoutesSection() {
         }
         const routesData = parsed?.routes ?? {};
         setRoutes(routesData);
+        setRawSchema(parsed || {});
         setInfo(industryUsed);
         const preview = typeof rawSchema === "string" ? rawSchema.slice(0, 200) : JSON.stringify(rawSchema).slice(0, 200);
         setDebugSchema(`typeof schema_json: ${typeof rawSchema} · preview: ${preview}`);
@@ -445,51 +460,228 @@ function RoutesSection() {
         <div className="text-blue-300">Cargando rutas…</div>
       ) : error ? (
         <div className="text-red-400">{error}</div>
-      ) : Object.keys(routes).length === 0 ? (
-        <div className="text-zinc-500 space-y-1">
-          <div>No hay rutas configuradas. Usa el botón para agregar la primera ruta.</div>
-          {info && <div className="text-xs text-zinc-600">{info}</div>}
-          {debugSchema && <div className="text-[11px] text-zinc-600">{debugSchema}</div>}
-        </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-6">
-          {Object.entries(routes).map(([key, route]: any) => (
-            <div key={key} className="rounded-2xl bg-zinc-900/80 border border-blue-900/30 p-6 flex flex-col gap-2 shadow-md">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="text-lg font-bold text-white">{route.name}</div>
-                  <div className="text-xs text-blue-300 font-mono">Código: {route.code || key}</div>
+        <div className="grid lg:grid-cols-[2fr,1fr] gap-4">
+          <div className="grid md:grid-cols-2 gap-3">
+            {Object.keys(routes).length === 0 ? (
+              <div className="text-zinc-500 space-y-1 col-span-2">
+                <div>No hay rutas configuradas. Usa el formulario para agregar la primera.</div>
+                {info && <div className="text-xs text-zinc-600">{info}</div>}
+                {debugSchema && <div className="text-[11px] text-zinc-600">{debugSchema}</div>}
+              </div>
+            ) : (
+              Object.entries(routes).map(([key, route]: any) => (
+              <div key={key} className="rounded-2xl bg-zinc-900/80 border border-blue-900/30 p-4 flex flex-col gap-2 shadow-md">
+                <div className="flex items-center justify-between mb-1">
+                  <div>
+                    <div className="text-lg font-bold text-white">{route.name}</div>
+                    <div className="text-xs text-blue-300 font-mono">{route.code || key}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className={cn(
+                        "px-2 py-1 rounded text-xs",
+                        route.active === false
+                          ? "bg-red-500/20 text-red-200 border border-red-500/30"
+                          : "bg-green-500/20 text-green-200 border border-green-500/30"
+                      )}
+                      onClick={async () => {
+                        try {
+                          const next = { ...(rawSchema || {}), routes: { ...(rawSchema?.routes || {}) } };
+                          const current = next.routes[key] || {};
+                          next.routes[key] = { ...current, active: current.active === false ? true : false };
+                          await saveRoutes(next);
+                        } catch (e) {
+                          setError("No se pudo cambiar estatus");
+                        }
+                      }}
+                    >
+                      {route.active === false ? "Inactiva" : "Activa"}
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded text-xs bg-blue-600/30 text-blue-100 border border-blue-600/40"
+                      onClick={() => {
+                        setEditingKey(String(key));
+                        setRouteForm({
+                          key: String(key),
+                          code: route.code || String(key),
+                          name: route.name || "",
+                          origin_city: route.config?.origin_city || "",
+                          destination_city: route.config?.destination_city || "",
+                          calculate_times: !!route.config?.calculate_times,
+                          active: route.active !== false,
+                          stopsText: JSON.stringify(route.stops || [], null, 2),
+                        });
+                      }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded text-xs bg-red-600/20 text-red-100 border border-red-600/40"
+                      onClick={async () => {
+                        try {
+                          const next = { ...(rawSchema || {}), routes: { ...(rawSchema?.routes || {}) } };
+                          delete next.routes[key];
+                          await saveRoutes(next);
+                        } catch (e) {
+                          setError("No se pudo eliminar la ruta");
+                        }
+                      }}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
-                <span className="px-2 py-1 rounded bg-blue-900/30 text-xs text-blue-200">{route.origin} → {route.destination}</span>
+                <div className="text-xs text-zinc-400">{route.config?.origin_city} → {route.config?.destination_city}</div>
+                <div className="text-xs text-zinc-500">{route.stops?.length || 0} paradas</div>
               </div>
-              <div className="mt-2">
-                <div className="text-xs text-zinc-400 mb-1 font-semibold">Paradas:</div>
-                <ul className="pl-4 list-disc space-y-1">
-                  {route.stops?.length ? (
-                    route.stops.map((stop: any, idx: number) => (
-                      <li key={idx} className="text-zinc-300">
-                        <span className="font-semibold">{stop.name}</span>
-                        {typeof stop.minutes_offset === "number" ? (
-                          <span className="ml-2 text-blue-400">+{stop.minutes_offset} min</span>
-                        ) : (
-                          <span className="ml-2 text-zinc-500">(sin horario)</span>
-                        )}
-                        {stop.location_url && (
-                          <a href={stop.location_url} target="_blank" rel="noopener noreferrer" className="ml-2 underline text-blue-300">Ver mapa</a>
-                        )}
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-zinc-500">Sin paradas registradas.</li>
-                  )}
-                </ul>
+              ))
+            )}
+          </div>
+
+          <div className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-white font-semibold">{editingKey ? "Editar ruta" : "Agregar ruta"}</div>
+                <div className="text-xs text-zinc-500">Guarda en schema_json.routes</div>
               </div>
+              {editingKey && (
+                <button className="text-xs text-cyan-300" onClick={() => { setEditingKey(""); setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stopsText: "[]" }); }}>
+                  Limpiar
+                </button>
+              )}
             </div>
-          ))}
+            <form
+              className="space-y-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setRouteSaving(true);
+                setRouteSaveError(null);
+                try {
+                  let stopsParsed: any = [];
+                  if (routeForm.stopsText.trim()) {
+                    stopsParsed = JSON.parse(routeForm.stopsText);
+                    if (!Array.isArray(stopsParsed)) throw new Error("stops debe ser un arreglo");
+                  }
+                  const next = { ...(rawSchema || {}) };
+                  const routesCopy = { ...(next.routes || {}) };
+                  const key = routeForm.key.trim() || routeForm.code.trim() || `RUTA_${Date.now()}`;
+                  routesCopy[key] = {
+                    code: routeForm.code || key,
+                    name: routeForm.name || key,
+                    stops: stopsParsed,
+                    active: routeForm.active,
+                    config: {
+                      origin_city: routeForm.origin_city,
+                      destination_city: routeForm.destination_city,
+                      calculate_times: routeForm.calculate_times,
+                    },
+                  };
+                  next.routes = routesCopy;
+                  await saveRoutes(next);
+                  setEditingKey("");
+                  setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stopsText: "[]" });
+                } catch (err: any) {
+                  setRouteSaveError(err?.message || "Error al guardar");
+                } finally {
+                  setRouteSaving(false);
+                }
+              }}
+            >
+              <input
+                required
+                placeholder="Clave (ej. C_M)"
+                value={routeForm.key}
+                onChange={(e) => setRouteForm((p) => ({ ...p, key: e.target.value }))}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                placeholder="Código"
+                value={routeForm.code}
+                onChange={(e) => setRouteForm((p) => ({ ...p, code: e.target.value }))}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                placeholder="Nombre"
+                value={routeForm.name}
+                onChange={(e) => setRouteForm((p) => ({ ...p, name: e.target.value }))}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  placeholder="Origen"
+                  value={routeForm.origin_city}
+                  onChange={(e) => setRouteForm((p) => ({ ...p, origin_city: e.target.value }))}
+                  className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                />
+                <input
+                  placeholder="Destino"
+                  value={routeForm.destination_city}
+                  onChange={(e) => setRouteForm((p) => ({ ...p, destination_city: e.target.value }))}
+                  className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-3 text-sm text-white">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={routeForm.calculate_times}
+                    onChange={(e) => setRouteForm((p) => ({ ...p, calculate_times: e.target.checked }))}
+                  />
+                  Calcular tiempos
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={routeForm.active}
+                    onChange={(e) => setRouteForm((p) => ({ ...p, active: e.target.checked }))}
+                  />
+                  Activa
+                </label>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 mb-1">Paradas (JSON Array)</div>
+                <textarea
+                  rows={6}
+                  value={routeForm.stopsText}
+                  onChange={(e) => setRouteForm((p) => ({ ...p, stopsText: e.target.value }))}
+                  className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none font-mono"
+                />
+              </div>
+              {routeSaveError && <div className="text-red-400 text-sm">{routeSaveError}</div>}
+              <button
+                type="submit"
+                disabled={routeSaving}
+                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold py-2 shadow-lg disabled:opacity-50"
+              >
+                {routeSaving ? "Guardando…" : "Guardar ruta"}
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </div>
   );
+
+  async function saveRoutes(nextSchema: any) {
+    const res = await fetch("/api/turisticos-del-norte/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ schema_json: nextSchema }),
+    });
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const j = await res.json();
+        detail = j ? ` · ${JSON.stringify(j)}` : "";
+      } catch (e) {
+        detail = "";
+      }
+      throw new Error(`Status ${res.status}${detail}`);
+    }
+    setRawSchema(nextSchema);
+    setRoutes(nextSchema.routes || {});
+  }
 }
 
 function TemplatesSection() {
@@ -507,7 +699,9 @@ function TemplatesSection() {
     client_message: "",
     media_url: "",
     maps_url: "",
+    active: true,
   });
+  const [editingKey, setEditingKey] = useState<string>("");
 
   useEffect(() => {
     const load = async () => {
@@ -568,27 +762,12 @@ function TemplatesSection() {
         client_message: form.client_message,
         media_url: form.media_url || null,
         maps_url: form.maps_url || null,
+        active: form.active,
       };
       nextSchema.resources = resources;
-      const res = await fetch("/api/turisticos-del-norte/config", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schema_json: nextSchema }),
-      });
-      if (!res.ok) {
-        let detail = "";
-        try {
-          const j = await res.json();
-          detail = j ? ` · ${JSON.stringify(j)}` : "";
-        } catch (e) {
-          detail = "";
-        }
-        throw new Error(`Status ${res.status}${detail}`);
-      }
-      const resourcesArray = Object.entries(resources).map(([k, v]: any) => ({ key: k, ...(v || {}) }));
-      setRawSchema(nextSchema);
-      setTemplates(resourcesArray);
-      setForm({ key: "", usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
+      await saveResources(nextSchema);
+      setForm({ key: "", usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "", active: true });
+      setEditingKey("");
     } catch (err: any) {
       setSaveError(`No se pudo guardar la plantilla. ${err?.message ?? ""}`);
     } finally {
@@ -614,23 +793,65 @@ function TemplatesSection() {
             ) : (
               <div className="grid md:grid-cols-2 gap-3">
                 {templates.map((tpl) => (
-                  <div key={tpl.key} className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 shadow">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={tpl.key} className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 shadow space-y-2">
+                    <div className="flex items-center justify-between gap-2">
                       <div>
                         <div className="text-white font-semibold">{tpl.usage_description || tpl.key}</div>
                         <div className="text-xs text-blue-300 font-mono">{tpl.key}</div>
                       </div>
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-900/30 text-blue-200">{tpl.response_type || "text"}</span>
+                      <span className={cn(
+                        "px-2 py-1 rounded-full text-xs",
+                        tpl.active === false ? "bg-red-500/20 text-red-200 border border-red-500/30" : "bg-green-500/20 text-green-200 border border-green-500/30"
+                      )}>{tpl.response_type || "text"}</span>
                     </div>
                     {tpl.client_message && (
-                      <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed mb-2">{tpl.client_message}</div>
+                      <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">{tpl.client_message}</div>
                     )}
-                    {tpl.media_url && (
-                      <a href={tpl.media_url} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-300 underline">Ver media</a>
-                    )}
-                    {tpl.maps_url && (
-                      <a href={tpl.maps_url} target="_blank" rel="noopener noreferrer" className="ml-3 text-xs text-cyan-300 underline">Ver mapa</a>
-                    )}
+                    <div className="flex items-center gap-3 text-xs">
+                      {tpl.media_url && (
+                        <a href={tpl.media_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver media</a>
+                      )}
+                      {tpl.maps_url && (
+                        <a href={tpl.maps_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver mapa</a>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <button
+                        className="px-2 py-1 rounded bg-blue-600/30 text-blue-100 border border-blue-600/40"
+                        onClick={() => handleSelect(tpl)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="px-2 py-1 rounded bg-red-600/20 text-red-100 border border-red-600/40"
+                        onClick={async () => {
+                          try {
+                            const next = { ...(rawSchema || {}), resources: { ...(rawSchema?.resources || {}) } };
+                            delete next.resources[tpl.key];
+                            await saveResources(next);
+                          } catch (e) {
+                            setSaveError("No se pudo eliminar");
+                          }
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                      <button
+                        className="px-2 py-1 rounded bg-zinc-800 border border-zinc-600 text-zinc-200"
+                        onClick={async () => {
+                          try {
+                            const next = { ...(rawSchema || {}), resources: { ...(rawSchema?.resources || {}) } };
+                            const current = next.resources[tpl.key] || {};
+                            next.resources[tpl.key] = { ...current, active: current.active === false ? true : false };
+                            await saveResources(next);
+                          } catch (e) {
+                            setSaveError("No se pudo cambiar estatus");
+                          }
+                        }}
+                      >
+                        {tpl.active === false ? "Inactiva" : "Activa"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -684,6 +905,20 @@ function TemplatesSection() {
                 onChange={(e) => handleFormChange("maps_url", e.target.value)}
                 className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
+              <div className="flex items-center gap-2 text-sm text-white">
+                <input
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={(e) => setForm((p) => ({ ...p, active: e.target.checked }))}
+                />
+                <span>Activa</span>
+                {editingKey && (
+                  <button type="button" className="text-xs text-cyan-300" onClick={() => {
+                    setEditingKey("");
+                    setForm({ key: "", usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "", active: true });
+                  }}>Limpiar</button>
+                )}
+              </div>
               {saveError && <div className="text-red-400 text-sm">{saveError}</div>}
               <button
                 type="submit"
@@ -698,4 +933,38 @@ function TemplatesSection() {
       )}
     </div>
   );
+
+  function handleSelect(tpl: any) {
+    setEditingKey(tpl.key);
+    setForm({
+      key: tpl.key || "",
+      usage_description: tpl.usage_description || "",
+      response_type: tpl.response_type || "text",
+      client_message: tpl.client_message || "",
+      media_url: tpl.media_url || "",
+      maps_url: tpl.maps_url || "",
+      active: tpl.active !== false,
+    });
+  }
+
+  async function saveResources(nextSchema: any) {
+    const res = await fetch("/api/turisticos-del-norte/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ schema_json: nextSchema }),
+    });
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const j = await res.json();
+        detail = j ? ` · ${JSON.stringify(j)}` : "";
+      } catch (e) {
+        detail = "";
+      }
+      throw new Error(`Status ${res.status}${detail}`);
+    }
+    const resourcesArray = Object.entries(nextSchema.resources || {}).map(([k, v]: any) => ({ key: k, ...(v || {}) }));
+    setRawSchema(nextSchema);
+    setTemplates(resourcesArray);
+  }
 }
