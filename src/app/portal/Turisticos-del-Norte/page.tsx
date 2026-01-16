@@ -1253,24 +1253,31 @@ function TemplatesSection() {
                   )}
                 </div>
 
-                {(mediaPreview || form.media_url) && form.response_type === "text" ? (
-                  !imageFailed ? (
-                    <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex flex-col gap-1 items-center justify-center">
+                <div className="rounded-xl bg-black/30 border border-white/5 p-2 min-h-[120px] flex items-center justify-center">
+                  {(!mediaPreview && !form.media_url && !pendingFile) && (
+                    <div className="text-xs text-zinc-500">Sin archivo seleccionado</div>
+                  )}
+                  {(mediaPreview || form.media_url) && !imageFailed && (
+                    <div className="w-full flex flex-col items-center gap-1">
                       <img
                         src={mediaPreview || form.media_url}
                         alt="media"
                         className="max-h-64 w-full object-contain"
                         onError={() => setImageFailed(true)}
+                        onLoad={() => setImageFailed(false)}
                       />
                       <div className="text-[11px] text-zinc-400">Vista previa</div>
                     </div>
-                  ) : (
-                    <div className="rounded-xl bg-black/30 border border-white/5 p-3 text-xs text-zinc-200 flex items-center justify-between">
-                      <span className="truncate">Archivo listo: {form.media_url}</span>
-                      <a className="text-cyan-300 underline" href={form.media_url} target="_blank" rel="noopener noreferrer">Abrir</a>
+                  )}
+                  {(imageFailed || (!mediaPreview && (form.media_url || pendingFile))) && (
+                    <div className="w-full flex items-center justify-between text-xs text-zinc-200 gap-3">
+                      <span className="truncate">Archivo listo: {form.media_url || pendingFile?.name || "(sin nombre)"}</span>
+                      {form.media_url && (
+                        <a className="text-cyan-300 underline" href={form.media_url} target="_blank" rel="noopener noreferrer">Abrir</a>
+                      )}
                     </div>
-                  )
-                ) : null}
+                  )}
+                </div>
 
                 <input
                   ref={replaceInputRef}
@@ -1371,9 +1378,9 @@ function TemplatesSection() {
     setDirty(true);
     setPendingFile(null);
     setRemoveExisting(false);
-    const maybePreview = "";
+    setImageFailed(false);
+    const maybePreview = tpl.media_url ? tpl.media_url : "";
     setMediaPreview(maybePreview);
-    setShowTemplateModal(true);
   }
 
   async function uploadFile(file: File) {
