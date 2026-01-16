@@ -909,6 +909,7 @@ function TemplatesSection() {
   const [dirty, setDirty] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState("");
+  const [mediaPreview, setMediaPreview] = useState("");
   const [search, setSearch] = useState("");
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
@@ -930,6 +931,7 @@ function TemplatesSection() {
     setDirty(false);
     setSaveError(null);
     setUploadSuccess("");
+    setMediaPreview("");
   };
 
   const closeModal = () => {
@@ -1217,6 +1219,7 @@ function TemplatesSection() {
                           const prev = form.media_path;
                           setForm((p) => ({ ...p, media_url: "", media_path: "" }));
                           setDirty(true);
+                          setMediaPreview("");
                           if (prev) await deleteMediaFromStorage(prev);
                         }}
                       >
@@ -1227,20 +1230,27 @@ function TemplatesSection() {
                 </div>
 
                 {form.media_url && form.response_type === "text" ? (
-                  isImageUrl(form.media_url) ? (
-                    <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex items-center justify-center">
-                      <img
-                        src={form.media_url}
-                        alt="media"
-                        className="max-h-64 w-full object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <div className="rounded-xl bg-black/30 border border-white/5 p-3 text-xs text-zinc-200 flex items-center justify-between">
-                      <span className="truncate">Archivo listo: {form.media_url}</span>
-                      <a className="text-cyan-300 underline" href={form.media_url} target="_blank" rel="noopener noreferrer">Abrir</a>
-                    </div>
-                  )
+                  (() => {
+                    const imgSrc = mediaPreview || form.media_url;
+                    const looksImage = mediaPreview ? true : isImageUrl(form.media_url) || isImageUrl(form.media_path || "");
+                    if (looksImage) {
+                      return (
+                        <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex items-center justify-center">
+                          <img
+                            src={imgSrc}
+                            alt="media"
+                            className="max-h-64 w-full object-contain"
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="rounded-xl bg-black/30 border border-white/5 p-3 text-xs text-zinc-200 flex items-center justify-between">
+                        <span className="truncate">Archivo listo: {form.media_url}</span>
+                        <a className="text-cyan-300 underline" href={form.media_url} target="_blank" rel="noopener noreferrer">Abrir</a>
+                      </div>
+                    );
+                  })()
                 ) : null}
 
                 <input
@@ -1252,10 +1262,19 @@ function TemplatesSection() {
                     if (!file) return;
                     setUploading(true);
                     setSaveError(null);
+                    if (file.type?.startsWith("image")) {
+                      const objUrl = URL.createObjectURL(file);
+                      setMediaPreview(objUrl);
+                    } else {
+                      setMediaPreview("");
+                    }
                     setUploadSuccess("");
                     const prevPath = form.media_path;
                     try {
                       const uploaded = await uploadFile(file);
+                      if (file.type?.startsWith("image")) {
+                        setMediaPreview(uploaded.url);
+                      }
                       setForm((p) => ({ ...p, media_url: uploaded.url, media_path: uploaded.path || "" }));
                       setDirty(true);
                       setUploadSuccess("Archivo subido");
@@ -1329,6 +1348,8 @@ function TemplatesSection() {
     setLinkEnabled(!!tpl.maps_url);
     setDirty(false);
     setSaveError(null);
+    const maybePreview = tpl.media_url && (isImageUrl(tpl.media_url) || isImageUrl(tpl.media_path || "")) ? tpl.media_url : "";
+    setMediaPreview(maybePreview);
     setShowTemplateModal(true);
   }
 
@@ -1345,6 +1366,8 @@ function TemplatesSection() {
     setLinkEnabled(!!tpl.maps_url);
     setSaveError(null);
     setDirty(true);
+    const maybePreview = tpl.media_url && (isImageUrl(tpl.media_url) || isImageUrl(tpl.media_path || "")) ? tpl.media_url : "";
+    setMediaPreview(maybePreview);
     setShowTemplateModal(true);
   }
 
