@@ -908,6 +908,7 @@ function TemplatesSection() {
   const [saved, setSaved] = useState<string>("");
   const [dirty, setDirty] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState("");
   const [search, setSearch] = useState("");
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
@@ -928,6 +929,7 @@ function TemplatesSection() {
     setLinkEnabled(false);
     setDirty(false);
     setSaveError(null);
+    setUploadSuccess("");
   };
 
   const closeModal = () => {
@@ -1225,13 +1227,20 @@ function TemplatesSection() {
                 </div>
 
                 {form.media_url && form.response_type === "text" ? (
-                  <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex items-center justify-center">
-                    <img
-                      src={form.media_url}
-                      alt="media"
-                      className="max-h-64 w-full object-contain"
-                    />
-                  </div>
+                  isImageUrl(form.media_url) ? (
+                    <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex items-center justify-center">
+                      <img
+                        src={form.media_url}
+                        alt="media"
+                        className="max-h-64 w-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-black/30 border border-white/5 p-3 text-xs text-zinc-200 flex items-center justify-between">
+                      <span className="truncate">Archivo listo: {form.media_url}</span>
+                      <a className="text-cyan-300 underline" href={form.media_url} target="_blank" rel="noopener noreferrer">Abrir</a>
+                    </div>
+                  )
                 ) : null}
 
                 <input
@@ -1243,11 +1252,13 @@ function TemplatesSection() {
                     if (!file) return;
                     setUploading(true);
                     setSaveError(null);
+                    setUploadSuccess("");
                     const prevPath = form.media_path;
                     try {
                       const uploaded = await uploadFile(file);
                       setForm((p) => ({ ...p, media_url: uploaded.url, media_path: uploaded.path || "" }));
                       setDirty(true);
+                      setUploadSuccess("Archivo subido");
                       if (prevPath) {
                         await deleteMediaFromStorage(prevPath);
                       }
@@ -1262,6 +1273,7 @@ function TemplatesSection() {
                   className="w-full text-sm text-zinc-200"
                 />
                 {uploading && <div className="text-xs text-blue-300">Subiendo archivo…</div>}
+                {uploadSuccess && !uploading && <div className="text-xs text-green-300">{uploadSuccess}</div>}
               </div>
               <label className="flex items-center gap-2 text-sm text-white">
                 <input
@@ -1369,6 +1381,10 @@ function TemplatesSection() {
     } catch (e) {
       console.error("No se pudo eliminar de storage", e);
     }
+  }
+
+  function isImageUrl(url: string) {
+    return /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?)($|\?)/i.test(url.split("?")[0]);
   }
 
   async function saveResources(nextSchema: any) {
