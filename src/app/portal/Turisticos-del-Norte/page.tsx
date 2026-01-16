@@ -905,6 +905,10 @@ function TemplatesSection() {
   const [debug, setDebug] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string>("");
+  const [dirty, setDirty] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [search, setSearch] = useState("");
   const [form, setForm] = useState({
     usage_description: "",
     response_type: "text",
@@ -913,6 +917,7 @@ function TemplatesSection() {
     maps_url: "",
   });
   const [editingKey, setEditingKey] = useState<string>("");
+  const [linkEnabled, setLinkEnabled] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -957,13 +962,40 @@ function TemplatesSection() {
 
   const handleFormChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setDirty(true);
   };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setSaveError(null);
+    setSaved("");
     try {
+      if (!form.usage_description.trim()) {
+        setSaveError("Agrega una descripción de uso");
+        setSaving(false);
+        return;
+      }
+      if (!form.client_message.trim()) {
+        setSaveError("Escribe un mensaje (máx 220)");
+        setSaving(false);
+        return;
+      }
+      if (form.client_message.length > 220) {
+        setSaveError("Máximo 220 caracteres");
+        setSaving(false);
+        return;
+      }
+      if (form.response_type !== "text" && !form.media_url) {
+        setSaveError("Sube un archivo para esta plantilla");
+        setSaving(false);
+        return;
+      }
+      if (linkEnabled && !form.maps_url.trim()) {
+        setSaveError("Agrega el link de ubicación");
+        setSaving(false);
+        return;
+      }
       const nextSchema = rawSchema ? { ...rawSchema } : {};
       const resources = { ...(nextSchema.resources || {}) };
       const candidate = form.usage_description || form.client_message || "";
@@ -981,13 +1013,16 @@ function TemplatesSection() {
         response_type: form.response_type,
         client_message: form.client_message,
         media_url: form.media_url || null,
-        maps_url: form.maps_url || null,
+        maps_url: linkEnabled ? (form.maps_url || null) : null,
         active: existing.active ?? true,
       };
       nextSchema.resources = resources;
       await saveResources(nextSchema);
       setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
       setEditingKey("");
+      setLinkEnabled(false);
+      setDirty(false);
+      setSaved("Plantilla guardada");
     } catch (err: any) {
       setSaveError(`No se pudo guardar la plantilla. ${err?.message ?? ""}`);
     } finally {
@@ -1000,6 +1035,11 @@ function TemplatesSection() {
       <h2 className="text-2xl font-bold text-white mb-2">Plantillas de Mensajes</h2>
       <div className="text-zinc-400 mb-2">Se leen/escriben en schema_json.resources (industry_configs, tenant 26).</div>
       {debug && <div className="text-[11px] text-zinc-600">{debug}</div>}
+      {saved && (
+        <div className="fixed bottom-6 right-6 z-20 rounded-xl bg-green-600/20 text-green-100 border border-green-500/40 px-4 py-3 shadow-lg">
+          {saved}
+        </div>
+      )}
 
       {loading ? (
         <div className="text-blue-300">Cargando plantillas…</div>
@@ -1008,11 +1048,27 @@ function TemplatesSection() {
       ) : (
         <div className="grid lg:grid-cols-[2fr,1fr] gap-4">
           <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <input
+                placeholder="Buscar plantilla"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full sm:w-72 rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <div className="text-[11px] text-zinc-500">Máx 220 caracteres por mensaje</div>
+            </div>
             {templates.length === 0 ? (
               <div className="text-zinc-500">No hay recursos/plantillas configuradas.</div>
             ) : (
               <div className="grid md:grid-cols-2 gap-3">
-                {templates.map((tpl) => (
+                {templates
+                  .filter((t) => {
+                    if (!search.trim()) return true;
+                    const q = search.toLowerCase();
+                    return (t.usage_description || "").toLowerCase().includes(q) || (t.client_message || "").toLowerCase().includes(q);
+                  })
+                  .sort((a, b) => (a.usage_description || "").localeCompare(b.usage_description || ""))
+                  .map((tpl) => (
                   <div key={tpl.key} className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 shadow space-y-2">
                     <div className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => handleSelect(tpl)}>
                       <div>
@@ -1025,7 +1081,7 @@ function TemplatesSection() {
                       </div>
                     </div>
                     {tpl.client_message && (
-                      <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">{tpl.client_message}</div>
+                      <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed line-clamp-2">{tpl.client_message}</div>
                     )}
                     <div className="flex items-center gap-3 text-xs">
                       {tpl.media_url && (
@@ -1045,6 +1101,8 @@ function TemplatesSection() {
                       <button
                         className="px-2 py-1 rounded bg-red-600/20 text-red-100 border border-red-600/40"
                         onClick={async () => {
+                          const ok = typeof window !== "undefined" ? window.confirm("¿Eliminar plantilla?") : true;
+                          if (!ok) return;
                           try {
                             const next = { ...(rawSchema || {}), resources: { ...(rawSchema?.resources || {}) } };
                             delete next.resources[tpl.key];
@@ -1055,6 +1113,12 @@ function TemplatesSection() {
                         }}
                       >
                         Eliminar
+                      </button>
+                      <button
+                        className="px-2 py-1 rounded bg-zinc-800 border border-zinc-600 text-zinc-200"
+                        onClick={() => handleDuplicate(tpl)}
+                      >
+                        Duplicar
                       </button>
                     </div>
                   </div>
@@ -1085,24 +1149,60 @@ function TemplatesSection() {
                 <option value="location_image">Ubicación + imagen</option>
               </select>
               <textarea
-                rows={5}
-                placeholder="Mensaje al cliente"
+                rows={4}
+                maxLength={220}
+                placeholder="Mensaje al cliente (máx 220)"
                 value={form.client_message}
                 onChange={(e) => handleFormChange("client_message", e.target.value)}
                 className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
-              <input
-                placeholder="Media URL (opcional)"
-                value={form.media_url}
-                onChange={(e) => handleFormChange("media_url", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                placeholder="Maps URL (opcional)"
-                value={form.maps_url}
-                onChange={(e) => handleFormChange("maps_url", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
+              <div className="text-[11px] text-zinc-500 text-right">{form.client_message.length}/220</div>
+              <div className="space-y-2 rounded-xl border border-blue-900/30 bg-zinc-950/60 p-3">
+                <div className="text-xs text-zinc-400">Media (imagen/archivo). Se sube y genera URL pública.</div>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setUploading(true);
+                    setSaveError(null);
+                    try {
+                      const url = await uploadFile(file);
+                      setForm((p) => ({ ...p, media_url: url }));
+                      setDirty(true);
+                    } catch (err: any) {
+                      setSaveError(err?.message || "No se pudo subir el archivo");
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                  className="w-full text-sm text-zinc-200"
+                />
+                {uploading && <div className="text-xs text-blue-300">Subiendo archivo…</div>}
+                {form.media_url && (
+                  <div className="flex items-center justify-between text-xs text-zinc-400">
+                    <a href={form.media_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver archivo</a>
+                    <button type="button" className="text-red-300" onClick={() => setForm((p) => ({ ...p, media_url: "" }))}>Quitar</button>
+                  </div>
+                )}
+              </div>
+              <label className="flex items-center gap-2 text-sm text-white">
+                <input
+                  type="checkbox"
+                  checked={linkEnabled}
+                  onChange={(e) => setLinkEnabled(e.target.checked)}
+                />
+                <span>Incluir link de ubicación</span>
+              </label>
+              {linkEnabled && (
+                <input
+                  placeholder="Link de ubicación"
+                  value={form.maps_url}
+                  onChange={(e) => handleFormChange("maps_url", e.target.value)}
+                  className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                />
+              )}
               {editingKey && (
                 <div className="flex items-center justify-between text-xs text-zinc-400">
                   <span>Editando {editingKey}</span>
@@ -1112,12 +1212,15 @@ function TemplatesSection() {
                     onClick={() => {
                       setEditingKey("");
                       setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
+                      setLinkEnabled(false);
+                      setDirty(false);
                     }}
                   >
                     Limpiar
                   </button>
                 </div>
               )}
+              {dirty && !saving && <div className="text-[11px] text-amber-300">Tienes cambios sin guardar</div>}
               {saveError && <div className="text-red-400 text-sm">{saveError}</div>}
               <button
                 type="submit"
@@ -1142,6 +1245,43 @@ function TemplatesSection() {
       media_url: tpl.media_url || "",
       maps_url: tpl.maps_url || "",
     });
+    setLinkEnabled(!!tpl.maps_url);
+    setDirty(false);
+  }
+
+  function handleDuplicate(tpl: any) {
+    setEditingKey("");
+    setForm({
+      usage_description: `${tpl.usage_description || tpl.key} copia`,
+      response_type: tpl.response_type || "text",
+      client_message: tpl.client_message || "",
+      media_url: tpl.media_url || "",
+      maps_url: tpl.maps_url || "",
+    });
+    setLinkEnabled(!!tpl.maps_url);
+    setDirty(true);
+  }
+
+  async function uploadFile(file: File) {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/turisticos-del-norte/upload", {
+      method: "POST",
+      body: fd,
+    });
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const j = await res.json();
+        detail = j ? ` · ${JSON.stringify(j)}` : "";
+      } catch (e) {
+        detail = "";
+      }
+      throw new Error(`Upload failed (${res.status})${detail}`);
+    }
+    const data = await res.json();
+    if (!data?.url) throw new Error("Respuesta sin URL");
+    return data.url as string;
   }
 
   async function saveResources(nextSchema: any) {
