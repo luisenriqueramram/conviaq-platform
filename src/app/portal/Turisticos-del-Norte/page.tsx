@@ -406,6 +406,7 @@ function RoutesSection() {
     resource_ref: "",
   });
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [routeSaving, setRouteSaving] = useState(false);
   const [routeSaveError, setRouteSaveError] = useState<string | null>(null);
@@ -634,6 +635,7 @@ function RoutesSection() {
                   <div className="rounded-xl border border-blue-900/30 bg-zinc-950/60 p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="text-white font-semibold text-sm">Paradas</div>
+                      <div className="text-[11px] text-zinc-500">Arrastra con el ícono ⋮⋮</div>
                     </div>
                     <div className="flex items-end gap-2 flex-wrap">
                       <div className="flex-1 min-w-[180px]">
@@ -702,20 +704,39 @@ function RoutesSection() {
                         (routeForm.stops || []).map((s: any, idx: number) => (
                           <div
                             key={idx}
-                            draggable
-                            onDragStart={() => setDraggingIndex(idx)}
                             onDragOver={(e) => {
                               e.preventDefault();
-                              if (draggingIndex === null || draggingIndex === idx) return;
+                              if (draggingIndex === null) return;
+                              setHoverIndex(idx);
+                              if (draggingIndex === idx) return;
                               const next = [...(routeForm.stops || [])];
                               const [moved] = next.splice(draggingIndex, 1);
                               next.splice(idx, 0, moved);
                               setRouteForm((p) => ({ ...p, stops: next }));
                               setDraggingIndex(idx);
                             }}
-                            onDragEnd={() => setDraggingIndex(null)}
-                            className="flex items-center gap-2 rounded-xl bg-zinc-900 border border-blue-900/30 px-3 py-2"
+                            onDragLeave={() => setHoverIndex(null)}
+                            onDragEnd={() => {
+                              setDraggingIndex(null);
+                              setHoverIndex(null);
+                            }}
+                            className={cn(
+                              "flex items-center gap-2 rounded-xl bg-zinc-900 border border-blue-900/30 px-3 py-2 transition-all duration-150",
+                              hoverIndex === idx ? "border-blue-500/60 bg-blue-900/20" : ""
+                            )}
                           >
+                            <div
+                              draggable
+                              onDragStart={() => setDraggingIndex(idx)}
+                              onDragEnd={() => {
+                                setDraggingIndex(null);
+                                setHoverIndex(null);
+                              }}
+                              className="text-lg text-zinc-400 cursor-grab select-none pr-1"
+                              title="Arrastra para reordenar"
+                            >
+                              ⋮⋮
+                            </div>
                             <div className="text-xs text-zinc-500 w-6">{idx + 1}</div>
                             <input
                               value={s.name}
