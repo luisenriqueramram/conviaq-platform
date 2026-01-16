@@ -59,6 +59,16 @@ type CalendarRow = {
   metadata?: any;
 };
 
+const DAY_OPTIONS = [
+  { value: 1, label: "Lun" },
+  { value: 2, label: "Mar" },
+  { value: 3, label: "Mié" },
+  { value: 4, label: "Jue" },
+  { value: 5, label: "Vie" },
+  { value: 6, label: "Sáb" },
+  { value: 0, label: "Dom" },
+];
+
 function CalendarSection() {
   const [rows, setRows] = useState<CalendarRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -413,8 +423,175 @@ function RoutesSection() {
   const [showForm, setShowForm] = useState(false);
   const [routeSaving, setRouteSaving] = useState(false);
   const [routeSaveError, setRouteSaveError] = useState<string | null>(null);
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const [plannerSaving, setPlannerSaving] = useState(false);
+  const [plannerSaved, setPlannerSaved] = useState("");
+  const [plannerError, setPlannerError] = useState<string | null>(null);
+  const [plannerRouteKey, setPlannerRouteKey] = useState("");
+  const [plannerRange, setPlannerRange] = useState({ start: "", end: "" });
+  const [plannerBase, setPlannerBase] = useState({
+    price: "",
+    time: "07:00",
+    status: "Activo",
+    origin_area: "",
+    destination_area: "",
+  });
+  const [costRules, setCostRules] = useState<{ id: string; amount: number; days: number[] }[]>([]);
+  const [timeRules, setTimeRules] = useState<{ id: string; time: string; days: number[] }[]>([]);
+  const [costDraft, setCostDraft] = useState<{ amount: string; days: number[] }>({ amount: "", days: [] });
+  const [timeDraft, setTimeDraft] = useState<{ time: string; days: number[] }>({ time: "", days: [] });
 
   const markDirty = () => setRouteDirty(true);
+
+  const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+  const formatShort = (d: Date) =>
+    new Intl.DateTimeFormat("es-MX", { weekday: "short", day: "numeric", month: "short" }).format(d);
+  const formatLong = (d: Date) =>
+    new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long" }).format(d);
+  const makeId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const openPlanner = (routeKey: string, routeData: any) => {
+    const today = new Date();
+    const end = new Date();
+    end.setDate(today.getDate() + 13);
+    setPlannerRouteKey(routeKey);
+    setPlannerRange({ start: toIsoDate(today), end: toIsoDate(end) });
+    setPlannerBase({
+      price: "",
+      time: "07:00",
+      status: "Activo",
+      origin_area: routeData?.config?.origin_city || "",
+      destination_area: routeData?.config?.destination_city || "",
+    });
+    setCostRules([]);
+    setTimeRules([]);
+    setCostDraft({ amount: "", days: [] });
+    setTimeDraft({ time: "", days: [] });
+    setPlannerError(null);
+    setPlannerSaved("");
+    setPlannerOpen(true);
+  };
+
+  const usedCostDays = new Set(costRules.flatMap((r) => r.days));
+  const usedTimeDays = new Set(timeRules.flatMap((r) => r.days));
+
+  const availableCostDay = (d: number) => !usedCostDays.has(d) || costDraft.days.includes(d);
+  const availableTimeDay = (d: number) => !usedTimeDays.has(d) || timeDraft.days.includes(d);
+
+  const toggleDayDraft = (kind: "cost" | "time", day: number) => {
+    if (kind === "cost") {
+      const exists = costDraft.days.includes(day);
+      setCostDraft((prev) => ({ ...prev, days: exists ? prev.days.filter((d) => d !== day) : [...prev.days, day] }));
+    } else {
+      const exists = timeDraft.days.includes(day);
+      setTimeDraft((prev) => ({ ...prev, days: exists ? prev.days.filter((d) => d !== day) : [...prev.days, day] }));
+    }
+  };
+
+  const addCostRule = () => {
+    const amountNum = Number(costDraft.amount);
+    if (!amountNum || !costDraft.days.length) return;
+    setCostRules((prev) => [...prev, { id: makeId("cost"), amount: amountNum, days: costDraft.days }]);
+    setCostDraft({ amount: "", days: [] });
+  };
+
+  const addTimeRule = () => {
+    if (!timeDraft.time || !timeDraft.days.length) return;
+    setTimeRules((prev) => [...prev, { id: makeId("time"), time: timeDraft.time, days: timeDraft.days }]);
+    setTimeDraft({ time: "", days: [] });
+  };
+
+  const calendarDays = useMemo(() => {
+    if (!plannerRange.start || !plannerRange.end || !plannerRouteKey) return [] as { key: string; date: Date; cost: number; time: string }[];
+    const start = new Date(plannerRange.start);
+    const end = new Date(plannerRange.end);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
+    const days = [] as { key: string; date: Date; cost: number; time: string }[];
+    let cursor = new Date(start);
+    const baseCost = Number(plannerBase.price) || 0;
+    while (cursor <= end) {
+      const dow = cursor.getDay();
+      const costRule = costRules.find((r) => r.days.includes(dow));
+      const timeRule = timeRules.find((r) => r.days.includes(dow));
+      days.push({
+        key: cursor.toISOString(),
+        date: new Date(cursor),
+        cost: costRule?.amount ?? baseCost,
+        time: timeRule?.time ?? plannerBase.time,
+      });
+      cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+    }
+    return days;
+  }, [plannerRange, plannerRouteKey, plannerBase.price, plannerBase.time, costRules, timeRules]);
+
+  const plannerRoute = plannerRouteKey ? (routes as any)[plannerRouteKey] : null;
+  const dayLabel = (d: number) => DAY_OPTIONS.find((opt) => opt.value === d)?.label ?? "";
+
+  const handlePlannerSave = async () => {
+    if (!plannerRouteKey) {
+      setPlannerError("Selecciona una ruta");
+      return;
+    }
+    if (!plannerRange.start || !plannerRange.end) {
+      setPlannerError("Selecciona un rango de fechas");
+      return;
+    }
+    if (!plannerBase.price || Number(plannerBase.price) <= 0) {
+      setPlannerError("Define un precio base válido");
+      return;
+    }
+    if (!plannerBase.time) {
+      setPlannerError("Define una hora de salida base");
+      return;
+    }
+    if (!calendarDays.length) {
+      setPlannerError("No hay fechas a guardar");
+      return;
+    }
+    setPlannerSaving(true);
+    setPlannerError(null);
+    setPlannerSaved("");
+    try {
+      const entries = calendarDays.map((d) => ({
+        route_key: plannerRouteKey,
+        trip_date: d.date.toISOString().slice(0, 10),
+        departure_time: d.time,
+        price: d.cost,
+        status: plannerBase.status,
+        origin_area: plannerBase.origin_area || null,
+        destination_area: plannerBase.destination_area || null,
+        metadata: {
+          source: "planner",
+          cost_rules: costRules,
+          time_rules: timeRules,
+          base: plannerBase,
+        },
+      }));
+      const res = await fetch("/api/turisticos-del-norte/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries,
+          replace: { route_key: plannerRouteKey, start: plannerRange.start, end: plannerRange.end },
+        }),
+      });
+      if (!res.ok) {
+        let detail = "";
+        try {
+          const j = await res.json();
+          detail = j ? ` · ${JSON.stringify(j)}` : "";
+        } catch (e) {
+          detail = "";
+        }
+        throw new Error(`Status ${res.status}${detail}`);
+      }
+      setPlannerSaved("Calendario actualizado. Puedes seguir ajustando o regresar.");
+    } catch (err: any) {
+      setPlannerError(`No se pudo guardar. ${err?.message ?? ""}`);
+    } finally {
+      setPlannerSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!routeSaved) return;
@@ -523,6 +700,12 @@ function RoutesSection() {
                       }}
                     >
                       Editar
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded text-xs bg-emerald-600/20 text-emerald-100 border border-emerald-500/40"
+                      onClick={() => openPlanner(String(key), route)}
+                    >
+                      Planificar salidas
                     </button>
                     <button
                       className="px-2 py-1 rounded text-xs bg-red-600/20 text-red-100 border border-red-600/40"
@@ -870,6 +1053,325 @@ function RoutesSection() {
                 </form>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {plannerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm">
+          <div className="max-w-6xl mx-auto mt-8 mb-8 bg-zinc-950 border border-blue-900/40 rounded-3xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-blue-900/30">
+              <div>
+                <div className="text-xs uppercase tracking-[0.2em] text-cyan-400">Editar</div>
+                <div className="text-xl font-bold text-white">Calendario de salidas por ruta</div>
+                <div className="text-xs text-zinc-500">Selecciona ruta, rango y reglas por día. Guardar no te saca.</div>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <button
+                  type="button"
+                  className="rounded-full border border-zinc-700 px-4 py-1 text-zinc-200"
+                  onClick={() => setPlannerOpen(false)}
+                >
+                  Regresar
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-zinc-700 px-4 py-1 text-zinc-200"
+                  onClick={() => setPlannerOpen(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-[1fr,1.2fr] gap-6 p-6 max-h-[85vh] overflow-y-auto">
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-blue-900/30 bg-zinc-900/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-white font-semibold">Paso 1 · Ruta a modificar</div>
+                    <div className="text-[11px] text-zinc-500">Obligatorio</div>
+                  </div>
+                  <select
+                    value={plannerRouteKey}
+                    onChange={(e) => setPlannerRouteKey(e.target.value)}
+                    className="w-full rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                  >
+                    <option value="">Selecciona ruta</option>
+                    {Object.entries(routes).map(([key, route]: any) => (
+                      <option key={key} value={key}>
+                        {route?.config?.origin_city || "Inicio"} → {route?.config?.destination_city || "Fin"}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="text-xs text-zinc-500">Ruta actual: {plannerRoute?.name || plannerRouteKey || "(sin seleccionar)"}</div>
+                </div>
+
+                <div className="rounded-2xl border border-blue-900/30 bg-zinc-900/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-white font-semibold">Paso 2 · Intervalo de fechas</div>
+                    <div className="text-[11px] text-zinc-500">Define el rango</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-xs text-zinc-500 mb-1">Inicio</div>
+                      <input
+                        type="date"
+                        value={plannerRange.start}
+                        onChange={(e) => setPlannerRange((p) => ({ ...p, start: e.target.value }))}
+                        className="w-full rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-zinc-500 mb-1">Fin</div>
+                      <input
+                        type="date"
+                        min={plannerRange.start}
+                        value={plannerRange.end}
+                        onChange={(e) => setPlannerRange((p) => ({ ...p, end: e.target.value }))}
+                        className="w-full rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-xs text-zinc-500">Se mapearán {calendarDays.length} días dentro del intervalo.</div>
+                </div>
+
+                <div className="rounded-2xl border border-blue-900/30 bg-zinc-900/70 p-4 space-y-3">
+                  <div className="text-white font-semibold">Valores base</div>
+                  <div className="text-xs text-zinc-500">Se usan si un día no tiene regla específica.</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-xs text-zinc-500 mb-1">Costo base</div>
+                      <input
+                        type="number"
+                        min={0}
+                        value={plannerBase.price}
+                        onChange={(e) => setPlannerBase((p) => ({ ...p, price: e.target.value }))}
+                        className="w-full rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-zinc-500 mb-1">Hora base</div>
+                      <input
+                        type="time"
+                        value={plannerBase.time}
+                        onChange={(e) => setPlannerBase((p) => ({ ...p, time: e.target.value }))}
+                        className="w-full rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-zinc-500 mb-1">Origen</div>
+                      <input
+                        value={plannerBase.origin_area}
+                        onChange={(e) => setPlannerBase((p) => ({ ...p, origin_area: e.target.value }))}
+                        className="w-full rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-zinc-500 mb-1">Destino</div>
+                      <input
+                        value={plannerBase.destination_area}
+                        onChange={(e) => setPlannerBase((p) => ({ ...p, destination_area: e.target.value }))}
+                        className="w-full rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-zinc-500 mb-1">Estatus</div>
+                      <select
+                        value={plannerBase.status}
+                        onChange={(e) => setPlannerBase((p) => ({ ...p, status: e.target.value }))}
+                        className="w-full rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                      >
+                        <option value="Activo">Activo</option>
+                        <option value="Pausado">Pausado</option>
+                        <option value="Cancelado">Cancelado</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-blue-900/30 bg-zinc-900/70 p-4 space-y-2">
+                  <div className="text-white font-semibold">Guía rápida</div>
+                  <ul className="text-xs text-zinc-500 space-y-1 list-disc list-inside">
+                    <li>Agrega un costo con el botón + y elige días libres.</li>
+                    <li>Luego puedes agregar otro costo con días no usados.</li>
+                    <li>Lo mismo aplica para las horas de salida.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-blue-900/30 bg-zinc-900/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white font-semibold">Modificar costo</div>
+                      <div className="text-xs text-zinc-500">Selecciona días y asigna un costo específico.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addCostRule}
+                      className="px-3 py-2 rounded-lg bg-emerald-500 text-zinc-950 text-xs font-semibold"
+                    >
+                      + Agregar costo
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {DAY_OPTIONS.map((d) => (
+                      <button
+                        key={d.value}
+                        type="button"
+                        disabled={!availableCostDay(d.value)}
+                        onClick={() => toggleDayDraft("cost", d.value)}
+                        className={cn(
+                          "px-3 py-2 rounded-lg border text-xs",
+                          costDraft.days.includes(d.value)
+                            ? "border-emerald-400 bg-emerald-500/20 text-emerald-100"
+                            : "border-blue-900/30 bg-zinc-950/60 text-zinc-300",
+                          !availableCostDay(d.value) ? "opacity-40 cursor-not-allowed" : "hover:border-emerald-400/60"
+                        )}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={costDraft.amount}
+                      onChange={(e) => setCostDraft((p) => ({ ...p, amount: e.target.value }))}
+                      placeholder="Ej. 850"
+                      className="flex-1 rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                    />
+                    <div className="text-xs text-zinc-500">Días libres: {DAY_OPTIONS.filter((d) => availableCostDay(d.value)).length}</div>
+                  </div>
+                  {costRules.length > 0 && (
+                    <div className="space-y-2">
+                      {costRules.map((rule) => (
+                        <div key={rule.id} className="flex items-center justify-between rounded-xl border border-blue-900/30 bg-zinc-950/60 px-3 py-2 text-xs">
+                          <span className="text-emerald-300">${rule.amount}</span>
+                          <span className="text-zinc-400">{rule.days.map(dayLabel).join(", ")}</span>
+                          <button
+                            type="button"
+                            className="text-red-300"
+                            onClick={() => setCostRules((prev) => prev.filter((r) => r.id !== rule.id))}
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-blue-900/30 bg-zinc-900/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white font-semibold">Modificar hora de salida</div>
+                      <div className="text-xs text-zinc-500">Elige días y asigna horario.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addTimeRule}
+                      className="px-3 py-2 rounded-lg bg-cyan-500 text-zinc-950 text-xs font-semibold"
+                    >
+                      + Agregar hora
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {DAY_OPTIONS.map((d) => (
+                      <button
+                        key={d.value}
+                        type="button"
+                        disabled={!availableTimeDay(d.value)}
+                        onClick={() => toggleDayDraft("time", d.value)}
+                        className={cn(
+                          "px-3 py-2 rounded-lg border text-xs",
+                          timeDraft.days.includes(d.value)
+                            ? "border-cyan-400 bg-cyan-500/20 text-cyan-100"
+                            : "border-blue-900/30 bg-zinc-950/60 text-zinc-300",
+                          !availableTimeDay(d.value) ? "opacity-40 cursor-not-allowed" : "hover:border-cyan-400/60"
+                        )}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={timeDraft.time}
+                      onChange={(e) => setTimeDraft((p) => ({ ...p, time: e.target.value }))}
+                      className="flex-1 rounded-xl bg-zinc-950/70 border border-blue-900/30 px-3 py-2 text-sm text-white"
+                    />
+                    <div className="text-xs text-zinc-500">Días libres: {DAY_OPTIONS.filter((d) => availableTimeDay(d.value)).length}</div>
+                  </div>
+                  {timeRules.length > 0 && (
+                    <div className="space-y-2">
+                      {timeRules.map((rule) => (
+                        <div key={rule.id} className="flex items-center justify-between rounded-xl border border-blue-900/30 bg-zinc-950/60 px-3 py-2 text-xs">
+                          <span className="text-cyan-300">{rule.time}h</span>
+                          <span className="text-zinc-400">{rule.days.map(dayLabel).join(", ")}</span>
+                          <button
+                            type="button"
+                            className="text-red-300"
+                            onClick={() => setTimeRules((prev) => prev.filter((r) => r.id !== rule.id))}
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-blue-900/30 bg-zinc-900/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white font-semibold">Vista previa del calendario</div>
+                      <div className="text-xs text-zinc-500">Ruta - Hora salida - Costo</div>
+                    </div>
+                    <div className="text-xs text-zinc-500">{calendarDays.length} días</div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
+                    {calendarDays.map((d) => (
+                      <div key={d.key} className="rounded-xl border border-blue-900/30 bg-zinc-950/60 px-3 py-2 text-xs">
+                        <div className="flex items-center justify-between text-zinc-200">
+                          <span className="capitalize">{formatShort(d.date)}</span>
+                          <span className="text-[10px] text-zinc-500">{plannerRoute?.name || plannerRouteKey}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-zinc-300 mt-1">
+                          <span>Salida {d.time}h</span>
+                          <span className="font-semibold">${d.cost}</span>
+                        </div>
+                        <div className="text-[10px] text-zinc-600">{formatLong(d.date)}</div>
+                      </div>
+                    ))}
+                    {calendarDays.length === 0 && (
+                      <div className="text-xs text-zinc-500">Selecciona un rango para ver el calendario.</div>
+                    )}
+                  </div>
+                  {plannerError && <div className="text-red-400 text-sm">{plannerError}</div>}
+                  {plannerSaved && <div className="text-green-300 text-sm">{plannerSaved}</div>}
+                  <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setPlannerOpen(false)}
+                      className="w-full sm:w-auto rounded-xl border border-zinc-700 px-4 py-2 text-sm text-white bg-zinc-900/60"
+                    >
+                      Regresar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={plannerSaving}
+                      onClick={handlePlannerSave}
+                      className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold px-4 py-2 shadow-lg disabled:opacity-50"
+                    >
+                      {plannerSaving ? "Guardando…" : "Guardar calendario"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
