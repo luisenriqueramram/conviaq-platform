@@ -49,10 +49,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "PUBLIC_URL_ERROR" }, { status: 500 });
     }
 
-    await db.query(
-      `INSERT INTO media_assets (tenant_id, file_name, public_url, storage_path, created_at) VALUES ($1, $2, $3, $4, NOW())`,
-      [TENANT_ID, file.name, publicUrl, path]
-    );
+    try {
+      await db.query(
+        `INSERT INTO media_assets (tenant_id, file_name, public_url, storage_path, created_at) VALUES ($1, $2, $3, $4, NOW())`,
+        [TENANT_ID, file.name, publicUrl, path]
+      );
+    } catch (dbErr: any) {
+      console.warn("[UPLOAD] media_assets insert skipped", dbErr?.message || dbErr);
+    }
 
     return NextResponse.json({ ok: true, url: publicUrl, path });
   } catch (error) {
