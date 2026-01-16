@@ -1297,8 +1297,20 @@ function TemplatesSection() {
                     // limpia para permitir volver a subir el mismo archivo si se desea
                     if (e.target) (e.target as HTMLInputElement).value = "";
                   }}
-                  className="w-full text-sm text-zinc-200"
+                  className="hidden"
                 />
+                <div className="flex items-center justify-between gap-3 text-sm text-zinc-200">
+                  <button
+                    type="button"
+                    onClick={() => replaceInputRef.current?.click()}
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-white shadow hover:bg-blue-500"
+                  >
+                    Seleccionar archivo
+                  </button>
+                  <span className="text-xs text-zinc-400 truncate">
+                    {pendingFile?.name || form.media_url ? pendingFile?.name || "Archivo actual" : "Ningún archivo seleccionado"}
+                  </span>
+                </div>
                 {uploading && <div className="text-xs text-blue-300">Subiendo archivo…</div>}
                 {uploadSuccess && !uploading && <div className="text-xs text-green-300">{uploadSuccess}</div>}
               </div>
