@@ -166,12 +166,25 @@ function CalendarSection() {
     return db.getTime() - da.getTime();
   };
 
+  const getTripDate = (value: CalendarRow["trip_date"]) => {
+    if (typeof value === "string") {
+      return value.length >= 10 ? value.slice(0, 10) : value;
+    }
+    return new Date(value).toISOString().slice(0, 10);
+  };
+
   const filteredRows = useMemo(() => {
     return rows
       .filter((r) => (filters.status ? r.status === filters.status : true))
       .filter((r) => (filters.route ? r.route_key.toLowerCase().includes(filters.route.toLowerCase()) : true))
-      .filter((r) => (filters.start ? r.trip_date >= filters.start : true))
-      .filter((r) => (filters.end ? r.trip_date <= filters.end : true))
+      .filter((r) => {
+        const dateKey = getTripDate(r.trip_date);
+        return filters.start ? dateKey >= filters.start : true;
+      })
+      .filter((r) => {
+        const dateKey = getTripDate(r.trip_date);
+        return filters.end ? dateKey <= filters.end : true;
+      })
       .sort(compareRowsDesc);
   }, [rows, filters]);
 
@@ -191,9 +204,10 @@ function CalendarSection() {
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth() + 1;
     for (const row of filteredRows) {
-      const [y, m, d] = row.trip_date.split("-").map(Number);
+      const dateKey = getTripDate(row.trip_date);
+      const [y, m] = dateKey.split("-").map(Number);
       if (y !== year || m !== month) continue;
-      const key = row.trip_date;
+      const key = dateKey;
       const list = map.get(key) ?? [];
       list.push(row);
       map.set(key, list);
