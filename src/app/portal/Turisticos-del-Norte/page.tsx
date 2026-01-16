@@ -401,7 +401,12 @@ function RoutesSection() {
     active: true,
     stops: [] as any[],
   });
-  const [stopDraft, setStopDraft] = useState({ name: "", minutes_offset: "", resource_ref: "" });
+  const [stopDraft, setStopDraft] = useState<{ name: string; minutes_offset: number; resource_ref: string }>({
+    name: "",
+    minutes_offset: 0,
+    resource_ref: "",
+  });
+  const [showForm, setShowForm] = useState(false);
   const [routeSaving, setRouteSaving] = useState(false);
   const [routeSaveError, setRouteSaveError] = useState<string | null>(null);
 
@@ -456,7 +461,7 @@ function RoutesSection() {
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-4">Configuración de Rutas</h2>
       <div className="text-zinc-400 mb-4">Administra las rutas, paradas y horarios de tu empresa turística.</div>
-      {currentTenant && <div className="text-xs text-zinc-500">Tenant actual en sesión: {currentTenant}</div>}
+      {/* Se oculta tenant en UI para evitar ruido */}
       {loading ? (
         <div className="text-blue-300">Cargando rutas…</div>
       ) : error ? (
@@ -480,28 +485,9 @@ function RoutesSection() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      className={cn(
-                        "px-2 py-1 rounded text-xs",
-                        route.active === false
-                          ? "bg-red-500/20 text-red-200 border border-red-500/30"
-                          : "bg-green-500/20 text-green-200 border border-green-500/30"
-                      )}
-                      onClick={async () => {
-                        try {
-                          const next = { ...(rawSchema || {}), routes: { ...(rawSchema?.routes || {}) } };
-                          const current = next.routes[key] || {};
-                          next.routes[key] = { ...current, active: current.active === false ? true : false };
-                          await saveRoutes(next);
-                        } catch (e) {
-                          setError("No se pudo cambiar estatus");
-                        }
-                      }}
-                    >
-                      {route.active === false ? "Inactiva" : "Activa"}
-                    </button>
-                    <button
                       className="px-2 py-1 rounded text-xs bg-blue-600/30 text-blue-100 border border-blue-600/40"
                       onClick={() => {
+                        setShowForm(true);
                         setEditingKey(String(key));
                         setRouteForm({
                           key: String(key),
@@ -510,10 +496,10 @@ function RoutesSection() {
                           origin_city: route.config?.origin_city || "",
                           destination_city: route.config?.destination_city || "",
                           calculate_times: !!route.config?.calculate_times,
-                          active: route.active !== false,
+                          active: true,
                           stops: Array.isArray(route.stops) ? route.stops : [],
                         });
-                        setStopDraft({ name: "", minutes_offset: "", resource_ref: "" });
+                        setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
                       }}
                     >
                       Editar
@@ -542,209 +528,284 @@ function RoutesSection() {
           </div>
 
           <div className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-white font-semibold">{editingKey ? "Editar ruta" : "Agregar ruta"}</div>
-                <div className="text-xs text-zinc-500">Guarda en schema_json.routes</div>
-              </div>
-              {editingKey && (
-                <button className="text-xs text-cyan-300" onClick={() => { setEditingKey(""); setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] }); setStopDraft({ name: "", minutes_offset: "", resource_ref: "" }); }}>
-                  Limpiar
-                </button>
-              )}
-            </div>
-            <form
-              className="space-y-2"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setRouteSaving(true);
-                setRouteSaveError(null);
-                try {
-                  const stopsParsed = (routeForm.stops || []).map((s, idx) => ({
-                    ...s,
-                    sequence: idx + 1,
-                    minutes_offset: Number(s.minutes_offset) || 0,
-                  }));
-                  const next = { ...(rawSchema || {}) };
-                  const routesCopy = { ...(next.routes || {}) };
-                  const key = routeForm.key.trim() || routeForm.code.trim() || `RUTA_${Date.now()}`;
-                  routesCopy[key] = {
-                    code: routeForm.code || key,
-                    name: routeForm.name || key,
-                    stops: stopsParsed,
-                    active: routeForm.active,
-                    config: {
-                      origin_city: routeForm.origin_city,
-                      destination_city: routeForm.destination_city,
-                      calculate_times: routeForm.calculate_times,
-                    },
-                  };
-                  next.routes = routesCopy;
-                  await saveRoutes(next);
+            {!showForm && (
+              <button
+                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold py-2 shadow"
+                onClick={() => {
+                  setShowForm(true);
                   setEditingKey("");
                   setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
-                  setStopDraft({ name: "", minutes_offset: "", resource_ref: "" });
-                } catch (err: any) {
-                  setRouteSaveError(err?.message || "Error al guardar");
-                } finally {
-                  setRouteSaving(false);
-                }
-              }}
-            >
-              <input
-                required
-                placeholder="Clave (ej. C_M)"
-                value={routeForm.key}
-                onChange={(e) => setRouteForm((p) => ({ ...p, key: e.target.value }))}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                placeholder="Código"
-                value={routeForm.code}
-                onChange={(e) => setRouteForm((p) => ({ ...p, code: e.target.value }))}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                placeholder="Nombre"
-                value={routeForm.name}
-                onChange={(e) => setRouteForm((p) => ({ ...p, name: e.target.value }))}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  placeholder="Origen"
-                  value={routeForm.origin_city}
-                  onChange={(e) => setRouteForm((p) => ({ ...p, origin_city: e.target.value }))}
-                  className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-                />
-                <input
-                  placeholder="Destino"
-                  value={routeForm.destination_city}
-                  onChange={(e) => setRouteForm((p) => ({ ...p, destination_city: e.target.value }))}
-                  className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-              <div className="flex items-center gap-3 text-sm text-white">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={routeForm.calculate_times}
-                    onChange={(e) => setRouteForm((p) => ({ ...p, calculate_times: e.target.checked }))}
-                  />
-                  Calcular tiempos
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={routeForm.active}
-                    onChange={(e) => setRouteForm((p) => ({ ...p, active: e.target.checked }))}
-                  />
-                  Activa
-                </label>
-              </div>
-              <div>
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <div className="text-xs text-zinc-500 mb-1">Nombre de parada</div>
-                    <input
-                      placeholder="Ej. Acayucan"
-                      value={stopDraft.name}
-                      onChange={(e) => setStopDraft((p) => ({ ...p, name: e.target.value }))}
-                      className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="w-28">
-                    <div className="text-xs text-zinc-500 mb-1">Min +</div>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={stopDraft.minutes_offset}
-                      onChange={(e) => setStopDraft((p) => ({ ...p, minutes_offset: e.target.value }))}
-                      className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="w-40">
-                    <div className="text-xs text-zinc-500 mb-1">Recurso (opcional)</div>
-                    <input
-                      placeholder="UBI_CARDEL"
-                      value={stopDraft.resource_ref}
-                      onChange={(e) => setStopDraft((p) => ({ ...p, resource_ref: e.target.value }))}
-                      className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-sm font-semibold shadow"
-                    onClick={() => {
-                      if (!stopDraft.name.trim()) return;
-                      setRouteForm((p) => ({ ...p, stops: [...(p.stops || []), { ...stopDraft, minutes_offset: Number(stopDraft.minutes_offset) || 0 }] }));
-                      setStopDraft({ name: "", minutes_offset: "", resource_ref: "" });
-                    }}
-                  >
-                    + Parada
-                  </button>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {(routeForm.stops || []).length === 0 ? (
-                    <div className="text-xs text-zinc-500">Aún no hay paradas. Agrega al menos una.</div>
-                  ) : (
-                    (routeForm.stops || []).map((s: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2 rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2">
-                        <div className="text-xs text-zinc-500 w-6">{idx + 1}</div>
-                        <input
-                          value={s.name}
-                          onChange={(e) => {
-                            const next = [...(routeForm.stops || [])];
-                            next[idx] = { ...next[idx], name: e.target.value };
-                            setRouteForm((p) => ({ ...p, stops: next }));
-                          }}
-                          className="flex-1 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
-                        />
-                        <input
-                          type="number"
-                          value={s.minutes_offset ?? 0}
-                          onChange={(e) => {
-                            const next = [...(routeForm.stops || [])];
-                            next[idx] = { ...next[idx], minutes_offset: Number(e.target.value) };
-                            setRouteForm((p) => ({ ...p, stops: next }));
-                          }}
-                          className="w-24 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
-                        />
-                        <input
-                          value={s.resource_ref || ""}
-                          onChange={(e) => {
-                            const next = [...(routeForm.stops || [])];
-                            next[idx] = { ...next[idx], resource_ref: e.target.value };
-                            setRouteForm((p) => ({ ...p, stops: next }));
-                          }}
-                          className="w-32 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
-                          placeholder="Recurso"
-                        />
-                        <button
-                          type="button"
-                          className="text-xs text-red-300"
-                          onClick={() => {
-                            const next = [...(routeForm.stops || [])];
-                            next.splice(idx, 1);
-                            setRouteForm((p) => ({ ...p, stops: next }));
-                          }}
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-              {routeSaveError && <div className="text-red-400 text-sm">{routeSaveError}</div>}
-              <button
-                type="submit"
-                disabled={routeSaving}
-                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold py-2 shadow-lg disabled:opacity-50"
+                  setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
+                }}
               >
-                {routeSaving ? "Guardando…" : "Guardar ruta"}
+                + Nueva ruta
               </button>
-            </form>
+            )}
+
+            {showForm && (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-semibold">{editingKey ? "Editar ruta" : "Nueva ruta"}</div>
+                    <div className="text-xs text-zinc-500">Guardar = PATCH schema_json.routes</div>
+                  </div>
+                  <div className="flex gap-2 text-xs text-cyan-300">
+                    <button
+                      onClick={() => {
+                        setShowForm(false);
+                        setEditingKey("");
+                      }}
+                    >
+                      Cerrar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingKey("");
+                        setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
+                        setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
+                      }}
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                </div>
+                <form
+                  className="space-y-2"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setRouteSaving(true);
+                    setRouteSaveError(null);
+                    try {
+                      const stopsParsed = (routeForm.stops || []).map((s, idx) => ({
+                        ...s,
+                        sequence: idx + 1,
+                        minutes_offset: Number(s.minutes_offset) || 0,
+                      }));
+                      const next = { ...(rawSchema || {}) };
+                      const routesCopy = { ...(next.routes || {}) };
+                      const baseKey = routeForm.key.trim() || routeForm.code.trim() || routeForm.name.trim();
+                      const safeKey = (baseKey || `RUTA_${Date.now()}`).replace(/\s+/g, "_").toUpperCase();
+                      routesCopy[safeKey] = {
+                        code: routeForm.code || safeKey,
+                        name: routeForm.name || safeKey,
+                        stops: stopsParsed,
+                        active: true,
+                        config: {
+                          origin_city: routeForm.origin_city,
+                          destination_city: routeForm.destination_city,
+                          calculate_times: routeForm.calculate_times,
+                        },
+                      };
+                      next.routes = routesCopy;
+                      await saveRoutes(next);
+                      setEditingKey("");
+                      setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
+                      setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
+                      setShowForm(false);
+                    } catch (err: any) {
+                      setRouteSaveError(err?.message || "Error al guardar");
+                    } finally {
+                      setRouteSaving(false);
+                    }
+                  }}
+                >
+                  <input
+                    placeholder="Nombre de la ruta"
+                    value={routeForm.name}
+                    onChange={(e) => setRouteForm((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      placeholder="Punto de salida"
+                      value={routeForm.origin_city}
+                      onChange={(e) => setRouteForm((p) => ({ ...p, origin_city: e.target.value }))}
+                      className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                    />
+                    <input
+                      placeholder="Punto de llegada"
+                      value={routeForm.destination_city}
+                      onChange={(e) => setRouteForm((p) => ({ ...p, destination_city: e.target.value }))}
+                      className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-white">
+                    <input
+                      type="checkbox"
+                      checked={routeForm.calculate_times}
+                      onChange={(e) => setRouteForm((p) => ({ ...p, calculate_times: e.target.checked }))}
+                    />
+                    Calcular tiempos automáticamente
+                  </label>
+                  <div className="rounded-xl border border-blue-900/30 bg-zinc-950/60 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-white font-semibold text-sm">Paradas</div>
+                    </div>
+                    <div className="flex items-end gap-2 flex-wrap">
+                      <div className="flex-1 min-w-[180px]">
+                        <div className="text-xs text-zinc-500 mb-1">Nombre</div>
+                        <input
+                          placeholder="Ej. Acayucan"
+                          value={stopDraft.name}
+                          onChange={(e) => setStopDraft((p) => ({ ...p, name: e.target.value }))}
+                          className="w-full rounded-xl bg-zinc-900 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div className="w-32">
+                        <div className="text-xs text-zinc-500 mb-1">Horas</div>
+                        <select
+                          value={Math.floor((Number(stopDraft.minutes_offset) || 0) / 60)}
+                          onChange={(e) => {
+                            const hrs = Number(e.target.value) || 0;
+                            const mins = (Number(stopDraft.minutes_offset) || 0) % 60;
+                            setStopDraft((p) => ({ ...p, minutes_offset: hrs * 60 + mins }));
+                          }}
+                          className="w-full rounded-xl bg-zinc-900 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                        >
+                          {Array.from({ length: 25 }).map((_, i) => (
+                            <option key={i} value={i}>{i} hrs</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="w-32">
+                        <div className="text-xs text-zinc-500 mb-1">Minutos</div>
+                        <select
+                          value={(Number(stopDraft.minutes_offset) || 0) % 60}
+                          onChange={(e) => {
+                            const mins = Number(e.target.value) || 0;
+                            const hrs = Math.floor((Number(stopDraft.minutes_offset) || 0) / 60);
+                            setStopDraft((p) => ({ ...p, minutes_offset: hrs * 60 + mins }));
+                          }}
+                          className="w-full rounded-xl bg-zinc-900 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                        >
+                          {Array.from({ length: 12 }).map((_, i) => {
+                            const v = i * 5;
+                            return (
+                              <option key={v} value={v}>{v} min</option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        className="px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-sm font-semibold shadow"
+                        onClick={() => {
+                          if (!stopDraft.name.trim()) return;
+                          setRouteForm((p) => ({
+                            ...p,
+                            stops: [...(p.stops || []), { ...stopDraft, minutes_offset: Number(stopDraft.minutes_offset) || 0 }],
+                          }));
+                          setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
+                        }}
+                      >
+                        + Parada
+                      </button>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {(routeForm.stops || []).length === 0 ? (
+                        <div className="text-xs text-zinc-500">Aún no hay paradas. Agrega al menos una.</div>
+                      ) : (
+                        (routeForm.stops || []).map((s: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 rounded-xl bg-zinc-900 border border-blue-900/30 px-3 py-2">
+                            <div className="text-xs text-zinc-500 w-6">{idx + 1}</div>
+                            <input
+                              value={s.name}
+                              onChange={(e) => {
+                                const next = [...(routeForm.stops || [])];
+                                next[idx] = { ...next[idx], name: e.target.value };
+                                setRouteForm((p) => ({ ...p, stops: next }));
+                              }}
+                              className="flex-1 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
+                            />
+                            <div className="flex items-center gap-1 text-xs text-zinc-400">
+                              <span>{Math.floor((Number(s.minutes_offset) || 0) / 60)}h</span>
+                              <span>{(Number(s.minutes_offset) || 0) % 60}m</span>
+                            </div>
+                            <select
+                              value={Math.floor((Number(s.minutes_offset) || 0) / 60)}
+                              onChange={(e) => {
+                                const hrs = Number(e.target.value) || 0;
+                                const mins = (Number(s.minutes_offset) || 0) % 60;
+                                const next = [...(routeForm.stops || [])];
+                                next[idx] = { ...next[idx], minutes_offset: hrs * 60 + mins };
+                                setRouteForm((p) => ({ ...p, stops: next }));
+                              }}
+                              className="w-20 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
+                            >
+                              {Array.from({ length: 25 }).map((_, i) => (
+                                <option key={i} value={i}>{i}h</option>
+                              ))}
+                            </select>
+                            <select
+                              value={(Number(s.minutes_offset) || 0) % 60}
+                              onChange={(e) => {
+                                const mins = Number(e.target.value) || 0;
+                                const hrs = Math.floor((Number(s.minutes_offset) || 0) / 60);
+                                const next = [...(routeForm.stops || [])];
+                                next[idx] = { ...next[idx], minutes_offset: hrs * 60 + mins };
+                                setRouteForm((p) => ({ ...p, stops: next }));
+                              }}
+                              className="w-20 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
+                            >
+                              {Array.from({ length: 12 }).map((_, i) => {
+                                const v = i * 5;
+                                return <option key={v} value={v}>{v}m</option>;
+                              })}
+                            </select>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                className="text-xs text-blue-300"
+                                onClick={() => {
+                                  if (idx === 0) return;
+                                  const next = [...(routeForm.stops || [])];
+                                  const [removed] = next.splice(idx, 1);
+                                  next.splice(idx - 1, 0, removed);
+                                  setRouteForm((p) => ({ ...p, stops: next }));
+                                }}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs text-blue-300"
+                                onClick={() => {
+                                  const next = [...(routeForm.stops || [])];
+                                  const [removed] = next.splice(idx, 1);
+                                  next.splice(idx + 1, 0, removed);
+                                  setRouteForm((p) => ({ ...p, stops: next }));
+                                }}
+                              >
+                                ↓
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              className="text-xs text-red-300"
+                              onClick={() => {
+                                const next = [...(routeForm.stops || [])];
+                                next.splice(idx, 1);
+                                setRouteForm((p) => ({ ...p, stops: next }));
+                              }}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  {routeSaveError && <div className="text-red-400 text-sm">{routeSaveError}</div>}
+                  <button
+                    type="submit"
+                    disabled={routeSaving}
+                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold py-2 shadow-lg disabled:opacity-50"
+                  >
+                    {routeSaving ? "Guardando…" : "Guardar ruta"}
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -781,13 +842,11 @@ function TemplatesSection() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    key: "",
     usage_description: "",
     response_type: "text",
     client_message: "",
     media_url: "",
     maps_url: "",
-    active: true,
   });
   const [editingKey, setEditingKey] = useState<string>("");
 
@@ -843,18 +902,27 @@ function TemplatesSection() {
     try {
       const nextSchema = rawSchema ? { ...rawSchema } : {};
       const resources = { ...(nextSchema.resources || {}) };
-      const key = form.key.trim() ? form.key.trim().toUpperCase().replace(/\s+/g, "_") : `RES_${Date.now()}`;
+      const candidate = form.usage_description || form.client_message || "";
+      const normalized = candidate
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "_")
+        .replace(/_{2,}/g, "_")
+        .replace(/^_|_$/g, "")
+        .toUpperCase();
+      const key = editingKey || (normalized ? normalized : `RES_${Date.now()}`);
+      const existing = resources[key] || {};
       resources[key] = {
         usage_description: form.usage_description,
         response_type: form.response_type,
         client_message: form.client_message,
         media_url: form.media_url || null,
         maps_url: form.maps_url || null,
-        active: form.active,
+        active: existing.active ?? true,
       };
       nextSchema.resources = resources;
       await saveResources(nextSchema);
-      setForm({ key: "", usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "", active: true });
+      setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
       setEditingKey("");
     } catch (err: any) {
       setSaveError(`No se pudo guardar la plantilla. ${err?.message ?? ""}`);
@@ -887,10 +955,10 @@ function TemplatesSection() {
                         <div className="text-white font-semibold">{tpl.usage_description || tpl.key}</div>
                         <div className="text-xs text-blue-300 font-mono">{tpl.key}</div>
                       </div>
-                      <span className={cn(
-                        "px-2 py-1 rounded-full text-xs",
-                        tpl.active === false ? "bg-red-500/20 text-red-200 border border-red-500/30" : "bg-green-500/20 text-green-200 border border-green-500/30"
-                      )}>{tpl.response_type || "text"}</span>
+                      <div className="flex items-center gap-2">
+                        {tpl.active === false && <span className="px-2 py-1 rounded-full text-xs bg-zinc-800 text-zinc-200 border border-zinc-600">Inactiva</span>}
+                        <span className="px-2 py-1 rounded-full text-xs bg-blue-900/30 text-blue-200">{tpl.response_type || "text"}</span>
+                      </div>
                     </div>
                     {tpl.client_message && (
                       <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">{tpl.client_message}</div>
@@ -924,21 +992,6 @@ function TemplatesSection() {
                       >
                         Eliminar
                       </button>
-                      <button
-                        className="px-2 py-1 rounded bg-zinc-800 border border-zinc-600 text-zinc-200"
-                        onClick={async () => {
-                          try {
-                            const next = { ...(rawSchema || {}), resources: { ...(rawSchema?.resources || {}) } };
-                            const current = next.resources[tpl.key] || {};
-                            next.resources[tpl.key] = { ...current, active: current.active === false ? true : false };
-                            await saveResources(next);
-                          } catch (e) {
-                            setSaveError("No se pudo cambiar estatus");
-                          }
-                        }}
-                      >
-                        {tpl.active === false ? "Inactiva" : "Activa"}
-                      </button>
                     </div>
                   </div>
                 ))}
@@ -949,16 +1002,9 @@ function TemplatesSection() {
           <div className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 space-y-3">
             <div>
               <div className="text-white font-semibold">Agregar/Actualizar plantilla</div>
-              <div className="text-xs text-zinc-500">Se guarda en schema_json.resources (key en MAYÚSCULAS)</div>
+              <div className="text-xs text-zinc-500">Se guarda en schema_json.resources. El key se genera automáticamente en MAYÚSCULAS.</div>
             </div>
             <form className="space-y-2" onSubmit={handleAdd}>
-              <input
-                required
-                placeholder="Clave (ej. INFO_PAGO)"
-                value={form.key}
-                onChange={(e) => handleFormChange("key", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
               <input
                 placeholder="Descripción de uso"
                 value={form.usage_description}
@@ -993,20 +1039,21 @@ function TemplatesSection() {
                 onChange={(e) => handleFormChange("maps_url", e.target.value)}
                 className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
-              <div className="flex items-center gap-2 text-sm text-white">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => setForm((p) => ({ ...p, active: e.target.checked }))}
-                />
-                <span>Activa</span>
-                {editingKey && (
-                  <button type="button" className="text-xs text-cyan-300" onClick={() => {
-                    setEditingKey("");
-                    setForm({ key: "", usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "", active: true });
-                  }}>Limpiar</button>
-                )}
-              </div>
+              {editingKey && (
+                <div className="flex items-center justify-between text-xs text-zinc-400">
+                  <span>Editando {editingKey}</span>
+                  <button
+                    type="button"
+                    className="text-cyan-300"
+                    onClick={() => {
+                      setEditingKey("");
+                      setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
+                    }}
+                  >
+                    Limpiar
+                  </button>
+                </div>
+              )}
               {saveError && <div className="text-red-400 text-sm">{saveError}</div>}
               <button
                 type="submit"
@@ -1025,13 +1072,11 @@ function TemplatesSection() {
   function handleSelect(tpl: any) {
     setEditingKey(tpl.key);
     setForm({
-      key: tpl.key || "",
       usage_description: tpl.usage_description || "",
       response_type: tpl.response_type || "text",
       client_message: tpl.client_message || "",
       media_url: tpl.media_url || "",
       maps_url: tpl.maps_url || "",
-      active: tpl.active !== false,
     });
   }
 
