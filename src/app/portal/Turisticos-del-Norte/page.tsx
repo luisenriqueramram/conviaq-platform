@@ -302,7 +302,7 @@ function CalendarSection() {
     <>
       <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-2">Calendario de Salidas</h2>
-      <div className="text-zinc-400 mb-4">Aquí podrás ver y programar las salidas de tus rutas turísticas.</div>
+        <div className="text-zinc-400">Visualiza salidas por día. Haz clic en una fecha para ver detalles y costos.</div>
 
       <div className="grid gap-4">
         <div className="space-y-4">
@@ -342,6 +342,23 @@ function CalendarSection() {
             />
           </div>
 
+          {(filters.route || filters.status || filters.start || filters.end) && (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+              <span className="text-zinc-500">Filtros activos:</span>
+              {filters.route && <span className="px-2 py-1 rounded-full bg-zinc-800 border border-zinc-700">Ruta: {getRouteLabel(filters.route)}</span>}
+              {filters.status && <span className="px-2 py-1 rounded-full bg-zinc-800 border border-zinc-700">Estatus: {filters.status}</span>}
+              {filters.start && <span className="px-2 py-1 rounded-full bg-zinc-800 border border-zinc-700">Desde: {filters.start}</span>}
+              {filters.end && <span className="px-2 py-1 rounded-full bg-zinc-800 border border-zinc-700">Hasta: {filters.end}</span>}
+              <button
+                type="button"
+                onClick={() => setFilters({ route: "", status: "", start: "", end: "" })}
+                className="px-2 py-1 rounded-full border border-cyan-500/40 text-cyan-200"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div className="text-blue-300">Cargando calendario…</div>
           ) : error ? (
@@ -379,6 +396,13 @@ function CalendarSection() {
                 {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((d) => (
                   <div key={d} className="text-center">{d}</div>
                 ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+                <span className="text-zinc-500">Leyenda:</span>
+                <span className="px-2 py-[2px] rounded-full bg-green-500/20 text-green-200 border border-green-500/30">Activo</span>
+                <span className="px-2 py-[2px] rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30">Pausado</span>
+                <span className="px-2 py-[2px] rounded-full bg-red-500/20 text-red-200 border border-red-500/30">Cancelado</span>
               </div>
 
               {filteredRows.length === 0 ? (
@@ -434,7 +458,13 @@ function CalendarSection() {
                               </div>
                             ))}
                             {extra > 0 && (
-                              <div className="text-[10px] text-cyan-300">+{extra} más</div>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDateKey(dateKey)}
+                                className="text-[10px] text-cyan-300"
+                              >
+                                +{extra} más
+                              </button>
                             )}
                           </div>
                         )}
@@ -833,7 +863,7 @@ function RoutesSection() {
   return (
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-4">Configuración de Rutas</h2>
-      <div className="text-zinc-400 mb-4">Administra las rutas, paradas y horarios de tu Línea de Autobuses.</div>
+      <div className="text-zinc-400 mb-4">Crea rutas y define paradas. Usa “Planificar salidas” para programar horarios y costos.</div>
       {routeSaved && (
         <div className="fixed bottom-6 right-6 z-20 rounded-xl bg-green-600/20 text-green-100 border border-green-500/40 px-4 py-3 shadow-lg">
           {routeSaved}
@@ -849,7 +879,7 @@ function RoutesSection() {
           <div className="grid md:grid-cols-2 gap-3">
             {Object.keys(routes).length === 0 ? (
               <div className="text-zinc-500 space-y-1 col-span-2">
-                <div>No hay rutas configuradas. Usa el formulario para agregar la primera.</div>
+                <div>No hay rutas configuradas. Usa “+ Nueva ruta” para empezar.</div>
                 {info && <div className="text-xs text-zinc-600">{info}</div>}
                 {debugSchema && <div className="text-[11px] text-zinc-600">{debugSchema}</div>}
               </div>
@@ -886,7 +916,7 @@ function RoutesSection() {
                       Editar
                     </button>
                     <button
-                      className="px-2 py-1 rounded text-xs bg-emerald-600/20 text-emerald-100 border border-emerald-500/40"
+                      className="px-2 py-1 rounded text-xs bg-gradient-to-r from-emerald-500 to-cyan-400 text-zinc-950 font-semibold"
                       onClick={() => openPlanner(String(key), route)}
                     >
                       Planificar salidas
@@ -1820,6 +1850,7 @@ function TemplatesSection() {
   return (
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-2">Plantillas de Mensajes</h2>
+      <div className="text-zinc-400 mb-2">Crea mensajes con texto e imagen. Úsalos para respuestas rápidas y consistentes.</div>
       {saved && (
         <div className="fixed bottom-6 right-6 z-20 rounded-xl bg-green-600/20 text-green-100 border border-green-500/40 px-4 py-3 shadow-lg">
           {saved}
