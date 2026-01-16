@@ -1788,6 +1788,11 @@ function TemplatesSection() {
         setSaving(false);
         return;
       }
+      if (!pendingFile && !form.media_url) {
+        setSaveError("Debe incluir una imagen o archivo");
+        setSaving(false);
+        return;
+      }
       if (linkEnabled && !form.maps_url.trim()) {
         setSaveError("Agrega el link de ubicación");
         setSaving(false);
