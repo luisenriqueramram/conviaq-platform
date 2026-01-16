@@ -492,13 +492,200 @@ function RoutesSection() {
   );
 }
 
+type MessageTemplate = {
+  key: string;
+  name?: string;
+  channel?: string;
+  body?: string;
+  variables?: string[];
+};
+
 function TemplatesSection() {
-  // TODO: Implementar CRUD de plantillas de mensajes
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [rawSchema, setRawSchema] = useState<any>(null);
+  const [debug, setDebug] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", channel: "whatsapp", body: "", variables: "" });
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/turisticos-del-norte/config");
+        if (!res.ok) {
+          let detail = "";
+          try {
+            const j = await res.json();
+            detail = j ? ` · ${JSON.stringify(j)}` : "";
+          } catch (e) {
+            detail = "";
+          }
+          throw new Error(`Status ${res.status}${detail}`);
+        }
+        const data = await res.json();
+        const schema = data?.config?.schema_json;
+        let parsed = schema;
+        if (typeof schema === "string") {
+          try {
+            parsed = JSON.parse(schema);
+          } catch (e) {
+            parsed = null;
+          }
+        }
+        setRawSchema(parsed || {});
+        const templatesData = parsed?.templates || parsed?.message_templates || [];
+        setTemplates(Array.isArray(templatesData) ? templatesData : []);
+        const preview = typeof schema === "string" ? schema.slice(0, 200) : JSON.stringify(schema).slice(0, 200);
+        setDebug(`typeof schema_json: ${typeof schema} · preview: ${preview}`);
+        setError(null);
+      } catch (err: any) {
+        setError(`No se pudo cargar el schema para plantillas. ${err?.message ?? ""}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleFormChange = (field: string, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const nextSchema = rawSchema ? { ...rawSchema } : {};
+      const list = Array.isArray(nextSchema.templates) ? [...nextSchema.templates] : Array.isArray(nextSchema.message_templates) ? [...nextSchema.message_templates] : [];
+      const key = form.name.trim() ? form.name.trim().toLowerCase().replace(/\s+/g, "-") : `tpl-${Date.now()}`;
+      const newTpl: MessageTemplate = {
+        key,
+        name: form.name || key,
+        channel: form.channel,
+        body: form.body,
+        variables: form.variables
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean),
+      };
+      const exists = list.find((t: MessageTemplate) => t.key === key);
+      const updated = exists ? list.map((t: MessageTemplate) => (t.key === key ? newTpl : t)) : [...list, newTpl];
+      nextSchema.templates = updated;
+      const res = await fetch("/api/turisticos-del-norte/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schema_json: nextSchema }),
+      });
+      if (!res.ok) {
+        let detail = "";
+        try {
+          const j = await res.json();
+          detail = j ? ` · ${JSON.stringify(j)}` : "";
+        } catch (e) {
+          detail = "";
+        }
+        throw new Error(`Status ${res.status}${detail}`);
+      }
+      setRawSchema(nextSchema);
+      setTemplates(updated);
+      setForm({ name: "", channel: "whatsapp", body: "", variables: "" });
+    } catch (err: any) {
+      setSaveError(`No se pudo guardar la plantilla. ${err?.message ?? ""}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
-      <h2 className="text-2xl font-bold text-white mb-4">Plantillas de Mensajes</h2>
-      <div className="text-zinc-400">Configura mensajes automáticos y multimedia para tus clientes.</div>
-      {/* CRUD de plantillas va aquí */}
+      <h2 className="text-2xl font-bold text-white mb-2">Plantillas de Mensajes</h2>
+      <div className="text-zinc-400 mb-2">Se leen desde schema_json de industry_configs (tenant 26).</div>
+      {debug && <div className="text-[11px] text-zinc-600">{debug}</div>}
+
+      {loading ? (
+        <div className="text-blue-300">Cargando plantillas…</div>
+      ) : error ? (
+        <div className="text-red-400">{error}</div>
+      ) : (
+        <div className="grid lg:grid-cols-[2fr,1fr] gap-4">
+          <div className="space-y-3">
+            {templates.length === 0 ? (
+              <div className="text-zinc-500">No hay plantillas configuradas en el schema.</div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-3">
+                {templates.map((tpl) => (
+                  <div key={tpl.key} className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 shadow">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <div className="text-white font-semibold">{tpl.name || tpl.key}</div>
+                        <div className="text-xs text-blue-300">Key: {tpl.key}</div>
+                      </div>
+                      <span className="px-2 py-1 rounded-full text-xs bg-blue-900/30 text-blue-200">{tpl.channel || "whatsapp"}</span>
+                    </div>
+                    <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                      {tpl.body || "(sin cuerpo)"}
+                    </div>
+                    {tpl.variables?.length ? (
+                      <div className="mt-2 text-xs text-zinc-500">Variables: {tpl.variables.join(", ")}</div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 space-y-3">
+            <div>
+              <div className="text-white font-semibold">Agregar/Actualizar plantilla</div>
+              <div className="text-xs text-zinc-500">Se guarda en schema_json.templates</div>
+            </div>
+            <form className="space-y-2" onSubmit={handleAdd}>
+              <input
+                required
+                placeholder="Nombre visible"
+                value={form.name}
+                onChange={(e) => handleFormChange("name", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <select
+                value={form.channel}
+                onChange={(e) => handleFormChange("channel", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              >
+                <option value="whatsapp">WhatsApp</option>
+                <option value="sms">SMS</option>
+                <option value="email">Email</option>
+              </select>
+              <textarea
+                required
+                rows={6}
+                placeholder="Cuerpo del mensaje"
+                value={form.body}
+                onChange={(e) => handleFormChange("body", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <input
+                placeholder="Variables separadas por coma (ej. nombre,fecha,ruta)"
+                value={form.variables}
+                onChange={(e) => handleFormChange("variables", e.target.value)}
+                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              {saveError && <div className="text-red-400 text-sm">{saveError}</div>}
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold py-2 shadow-lg disabled:opacity-50"
+              >
+                {saving ? "Guardando…" : "Guardar plantilla"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

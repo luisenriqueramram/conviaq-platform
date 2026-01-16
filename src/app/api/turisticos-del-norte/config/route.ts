@@ -41,7 +41,7 @@ export async function GET() {
 export async function PATCH(req: Request) {
   try {
     const { tenantId } = await requireSession();
-    if (tenantId !== TENANT_ID) {
+    if (Number(tenantId) !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED" }, { status: 403 });
     }
     const body = await req.json();
