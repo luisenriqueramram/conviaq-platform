@@ -2208,12 +2208,20 @@ function TemplatesSection() {
   }
 
   async function saveResources(nextSchema: any) {
-    const res = await fetch("/api/turisticos-del-norte/config", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ schema_json: nextSchema }),
-    });
-    if (!res.ok) {
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+      const res = await fetch("/api/turisticos-del-norte/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schema_json: nextSchema }),
+      });
+      if (res.ok) {
+        const resourcesArray = Object.entries(nextSchema.resources || {}).map(([k, v]: any) => ({ key: k, ...(v || {}) }));
+        setRawSchema(nextSchema);
+        setTemplates(resourcesArray);
+        return;
+      }
       let detail = "";
       try {
         const j = await res.json();
@@ -2221,10 +2229,11 @@ function TemplatesSection() {
       } catch (e) {
         detail = "";
       }
-      throw new Error(`Status ${res.status}${detail}`);
+      lastError = new Error(`Status ${res.status}${detail}`);
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+      }
     }
-    const resourcesArray = Object.entries(nextSchema.resources || {}).map(([k, v]: any) => ({ key: k, ...(v || {}) }));
-    setRawSchema(nextSchema);
-    setTemplates(resourcesArray);
+    throw lastError || new Error("No se pudo guardar. Intenta de nuevo.");
   }
 }
