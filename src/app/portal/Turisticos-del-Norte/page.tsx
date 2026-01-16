@@ -912,6 +912,7 @@ function TemplatesSection() {
   const [uploadSuccess, setUploadSuccess] = useState("");
   const [mediaPreview, setMediaPreview] = useState("");
   const [removeExisting, setRemoveExisting] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const [search, setSearch] = useState("");
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
@@ -936,6 +937,7 @@ function TemplatesSection() {
     setMediaPreview("");
     setPendingFile(null);
     setRemoveExisting(false);
+    setImageFailed(false);
   };
 
   const closeModal = () => {
@@ -1252,28 +1254,21 @@ function TemplatesSection() {
                 </div>
 
                 {(mediaPreview || form.media_url) && form.response_type === "text" ? (
-                  (() => {
-                    const imgSrc = mediaPreview || form.media_url;
-                    const looksImage = mediaPreview ? true : isImageUrl(form.media_url) || isImageUrl(form.media_path || "");
-                    if (looksImage) {
-                      return (
-                        <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex items-center justify-center">
-                          <img
-                            src={imgSrc}
-                            alt="media"
-                            className="max-h-64 w-full object-contain"
-                            onError={() => setMediaPreview("")}
-                          />
-                        </div>
-                      );
-                    }
-                    return (
-                      <div className="rounded-xl bg-black/30 border border-white/5 p-3 text-xs text-zinc-200 flex items-center justify-between">
-                        <span className="truncate">Archivo listo: {form.media_url}</span>
-                        <a className="text-cyan-300 underline" href={form.media_url} target="_blank" rel="noopener noreferrer">Abrir</a>
-                      </div>
-                    );
-                  })()
+                  !imageFailed ? (
+                    <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex items-center justify-center">
+                      <img
+                        src={mediaPreview || form.media_url}
+                        alt="media"
+                        className="max-h-64 w-full object-contain"
+                        onError={() => setImageFailed(true)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-black/30 border border-white/5 p-3 text-xs text-zinc-200 flex items-center justify-between">
+                      <span className="truncate">Archivo listo: {form.media_url}</span>
+                      <a className="text-cyan-300 underline" href={form.media_url} target="_blank" rel="noopener noreferrer">Abrir</a>
+                    </div>
+                  )
                 ) : null}
 
                 <input
@@ -1285,12 +1280,9 @@ function TemplatesSection() {
                     if (!file) return;
                     setSaveError(null);
                     setPendingFile(file);
-                    if (file.type?.startsWith("image")) {
-                      const objUrl = URL.createObjectURL(file);
-                      setMediaPreview(objUrl);
-                    } else {
-                      setMediaPreview("");
-                    }
+                    setImageFailed(false);
+                    const objUrl = URL.createObjectURL(file);
+                    setMediaPreview(objUrl);
                     setUploadSuccess("Listo para guardar");
                     setDirty(true);
                     setRemoveExisting(false);
