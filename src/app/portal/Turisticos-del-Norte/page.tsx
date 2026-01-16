@@ -75,6 +75,7 @@ function CalendarSection() {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({ route: "", status: "", start: "", end: "" });
   const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [routeOptions, setRouteOptions] = useState<Array<{ key: string; label: string }>>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -112,6 +113,34 @@ function CalendarSection() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const loadRoutes = async () => {
+      try {
+        const res = await fetch("/api/turisticos-del-norte/config");
+        if (!res.ok) return;
+        const data = await res.json();
+        const rawSchema = data?.config?.schema_json;
+        let parsed = rawSchema;
+        if (typeof rawSchema === "string") {
+          try {
+            parsed = JSON.parse(rawSchema);
+          } catch {
+            parsed = null;
+          }
+        }
+        const routesData = parsed?.routes ?? {};
+        const options = Object.entries(routesData).map(([key, route]: any) => ({
+          key,
+          label: route?.name || `${route?.config?.origin_city || "Inicio"} → ${route?.config?.destination_city || "Fin"}`,
+        }));
+        setRouteOptions(options);
+      } catch {
+        setRouteOptions([]);
+      }
+    };
+    loadRoutes();
   }, []);
 
   const formatDate = (d: string) => {
@@ -172,6 +201,16 @@ function CalendarSection() {
     return map;
   }, [filteredRows, calendarMonth]);
 
+  useEffect(() => {
+    if (!rows.length) return;
+    if (filters.route || filters.status || filters.start || filters.end) return;
+    const latest = rows.slice().sort(compareRowsDesc)[0];
+    if (!latest) return;
+    const [y, m] = latest.trip_date.split("-").map(Number);
+    if (!y || !m) return;
+    setCalendarMonth(new Date(y, m - 1, 1));
+  }, [rows, filters]);
+
   const formatCurrency = (value: number | string) =>
     Number(value).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -227,13 +266,17 @@ function CalendarSection() {
       <div className="grid lg:grid-cols-[2.2fr,1fr] gap-4">
         <div className="space-y-4">
           <div className="grid md:grid-cols-4 gap-2">
-            <input
-              type="text"
-              placeholder="Buscar por ruta"
+            <select
               value={filters.route}
               onChange={(e) => handleChange("route", e.target.value)}
-              className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-            />
+              className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Todas las rutas</option>
+              {(routeOptions.length ? routeOptions : Array.from(new Set(rows.map((r) => r.route_key))).map((key) => ({ key, label: key })))
+                .map((route) => (
+                  <option key={route.key} value={route.key}>{route.label}</option>
+                ))}
+            </select>
             <select
               value={filters.status}
               onChange={(e) => handleChange("status", e.target.value)}
