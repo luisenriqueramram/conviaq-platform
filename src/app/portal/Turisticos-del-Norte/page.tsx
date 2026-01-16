@@ -1033,8 +1033,6 @@ function TemplatesSection() {
   return (
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-2">Plantillas de Mensajes</h2>
-      <div className="text-zinc-400 mb-2">Se leen/escriben en schema_json.resources (industry_configs, tenant 26).</div>
-      {debug && <div className="text-[11px] text-zinc-600">{debug}</div>}
       {saved && (
         <div className="fixed bottom-6 right-6 z-20 rounded-xl bg-green-600/20 text-green-100 border border-green-500/40 px-4 py-3 shadow-lg">
           {saved}
