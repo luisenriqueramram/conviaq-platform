@@ -909,6 +909,7 @@ function TemplatesSection() {
   const [dirty, setDirty] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [form, setForm] = useState({
     usage_description: "",
     response_type: "text",
@@ -918,6 +919,19 @@ function TemplatesSection() {
   });
   const [editingKey, setEditingKey] = useState<string>("");
   const [linkEnabled, setLinkEnabled] = useState(false);
+
+  const resetFormState = () => {
+    setEditingKey("");
+    setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
+    setLinkEnabled(false);
+    setDirty(false);
+    setSaveError(null);
+  };
+
+  const closeModal = () => {
+    resetFormState();
+    setShowTemplateModal(false);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -1022,6 +1036,7 @@ function TemplatesSection() {
       setEditingKey("");
       setLinkEnabled(false);
       setDirty(false);
+      setShowTemplateModal(false);
       setSaved("Plantilla guardada");
     } catch (err: any) {
       setSaveError(`No se pudo guardar la plantilla. ${err?.message ?? ""}`);
@@ -1044,103 +1059,131 @@ function TemplatesSection() {
       ) : error ? (
         <div className="text-red-400">{error}</div>
       ) : (
-        <div className="grid lg:grid-cols-[2fr,1fr] gap-4">
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-2">
               <input
                 placeholder="Buscar plantilla"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full sm:w-72 rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
-              <div className="text-[11px] text-zinc-500">Máx 220 caracteres por mensaje</div>
+              <div className="text-[11px] text-zinc-500">Máx 220 caracteres</div>
             </div>
-            {templates.length === 0 ? (
-              <div className="text-zinc-500">No hay recursos/plantillas configuradas.</div>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-3">
-                {templates
-                  .filter((t) => {
-                    if (!search.trim()) return true;
-                    const q = search.toLowerCase();
-                    return (t.usage_description || "").toLowerCase().includes(q) || (t.client_message || "").toLowerCase().includes(q);
-                  })
-                  .sort((a, b) => (a.usage_description || "").localeCompare(b.usage_description || ""))
-                  .map((tpl) => (
-                  <div key={tpl.key} className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 shadow space-y-2">
-                    <div className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => handleSelect(tpl)}>
-                      <div>
-                        <div className="text-white font-semibold">{tpl.usage_description || tpl.key}</div>
-                        <div className="text-xs text-blue-300 font-mono">{tpl.key}</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {tpl.active === false && <span className="px-2 py-1 rounded-full text-xs bg-zinc-800 text-zinc-200 border border-zinc-600">Inactiva</span>}
-                        <span className="px-2 py-1 rounded-full text-xs bg-blue-900/30 text-blue-200">{tpl.response_type || "text"}</span>
-                      </div>
-                    </div>
-                    {tpl.client_message && (
-                      <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed line-clamp-2">{tpl.client_message}</div>
-                    )}
-                    <div className="flex items-center gap-3 text-xs">
-                      {tpl.media_url && (
-                        <a href={tpl.media_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver media</a>
-                      )}
-                      {tpl.maps_url && (
-                        <a href={tpl.maps_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver mapa</a>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <button
-                        className="px-2 py-1 rounded bg-blue-600/30 text-blue-100 border border-blue-600/40"
-                        onClick={() => handleSelect(tpl)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        className="px-2 py-1 rounded bg-red-600/20 text-red-100 border border-red-600/40"
-                        onClick={async () => {
-                          const ok = typeof window !== "undefined" ? window.confirm("¿Eliminar plantilla?") : true;
-                          if (!ok) return;
-                          try {
-                            const next = { ...(rawSchema || {}), resources: { ...(rawSchema?.resources || {}) } };
-                            delete next.resources[tpl.key];
-                            await saveResources(next);
-                          } catch (e) {
-                            setSaveError("No se pudo eliminar");
-                          }
-                        }}
-                      >
-                        Eliminar
-                      </button>
-                      <button
-                        className="px-2 py-1 rounded bg-zinc-800 border border-zinc-600 text-zinc-200"
-                        onClick={() => handleDuplicate(tpl)}
-                      >
-                        Duplicar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <button
+              className="px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-sm font-semibold shadow"
+              onClick={() => {
+                resetFormState();
+                setShowTemplateModal(true);
+              }}
+            >
+              Nueva plantilla
+            </button>
           </div>
 
-          <div className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 space-y-3">
-            <div>
-              <div className="text-white font-semibold">Agregar/Actualizar plantilla</div>
-              <div className="text-xs text-zinc-500">Se guarda en schema_json.resources. El key se genera automáticamente en MAYÚSCULAS.</div>
+          {templates.length === 0 ? (
+            <div className="text-zinc-500">No hay recursos/plantillas configuradas.</div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-3">
+              {templates
+                .filter((t) => {
+                  if (!search.trim()) return true;
+                  const q = search.toLowerCase();
+                  return (t.usage_description || "").toLowerCase().includes(q) || (t.client_message || "").toLowerCase().includes(q);
+                })
+                .sort((a, b) => (a.usage_description || "").localeCompare(b.usage_description || ""))
+                .map((tpl) => (
+                <div key={tpl.key} className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 shadow space-y-2">
+                  <div className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => handleSelect(tpl)}>
+                    <div>
+                      <div className="text-white font-semibold">{tpl.usage_description || tpl.key}</div>
+                      <div className="text-xs text-blue-300 font-mono">{tpl.key}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {tpl.active === false && <span className="px-2 py-1 rounded-full text-xs bg-zinc-800 text-zinc-200 border border-zinc-600">Inactiva</span>}
+                      <span className="px-2 py-1 rounded-full text-xs bg-blue-900/30 text-blue-200">{tpl.response_type || "text"}</span>
+                    </div>
+                  </div>
+                  {tpl.client_message && (
+                    <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed line-clamp-2">{tpl.client_message}</div>
+                  )}
+                  <div className="flex items-center gap-3 text-xs">
+                    {tpl.media_url && (
+                      <a href={tpl.media_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver media</a>
+                    )}
+                    {tpl.maps_url && (
+                      <a href={tpl.maps_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver mapa</a>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <button
+                      className="px-2 py-1 rounded bg-blue-600/30 text-blue-100 border border-blue-600/40"
+                      onClick={() => handleSelect(tpl)}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded bg-red-600/20 text-red-100 border border-red-600/40"
+                      onClick={async () => {
+                        const ok = typeof window !== "undefined" ? window.confirm("¿Eliminar plantilla?") : true;
+                        if (!ok) return;
+                        try {
+                          const next = { ...(rawSchema || {}), resources: { ...(rawSchema?.resources || {}) } };
+                          delete next.resources[tpl.key];
+                          await saveResources(next);
+                        } catch (e) {
+                          setSaveError("No se pudo eliminar");
+                        }
+                      }}
+                    >
+                      Eliminar
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded bg-zinc-800 border border-zinc-600 text-zinc-200"
+                      onClick={() => handleDuplicate(tpl)}
+                    >
+                      Duplicar
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <form className="space-y-2" onSubmit={handleAdd}>
+          )}
+        </div>
+      )}
+
+      {showTemplateModal && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4" onClick={closeModal}>
+          <div
+            className="relative w-full max-w-3xl rounded-3xl bg-zinc-950 border border-blue-900/40 shadow-2xl p-6 md:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              aria-label="Cerrar"
+              className="absolute top-3 right-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white px-3 py-1 text-sm"
+              onClick={closeModal}
+            >
+              Cerrar
+            </button>
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+              <div>
+                <div className="text-white font-semibold text-lg">{editingKey ? "Editar plantilla" : "Nueva plantilla"}</div>
+                <div className="text-xs text-zinc-500">Se guarda en schema_json.resources. El key se genera automáticamente en MAYÚSCULAS.</div>
+              </div>
+              {editingKey && <span className="px-2 py-1 rounded-full text-xs bg-zinc-800 text-blue-200 border border-blue-900/40">{editingKey}</span>}
+            </div>
+
+            <form className="space-y-3" onSubmit={handleAdd}>
               <input
                 placeholder="Descripción de uso"
                 value={form.usage_description}
                 onChange={(e) => handleFormChange("usage_description", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
               <select
                 value={form.response_type}
                 onChange={(e) => handleFormChange("response_type", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
               >
                 <option value="text">Texto</option>
                 <option value="image">Imagen</option>
@@ -1152,10 +1195,10 @@ function TemplatesSection() {
                 placeholder="Mensaje al cliente (máx 220)"
                 value={form.client_message}
                 onChange={(e) => handleFormChange("client_message", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
               <div className="text-[11px] text-zinc-500 text-right">{form.client_message.length}/220</div>
-              <div className="space-y-2 rounded-xl border border-blue-900/30 bg-zinc-950/60 p-3">
+              <div className="space-y-2 rounded-xl border border-blue-900/30 bg-zinc-900/70 p-3">
                 <div className="text-xs text-zinc-400">Media (imagen/archivo). Se sube y genera URL pública.</div>
                 <input
                   type="file"
@@ -1198,35 +1241,27 @@ function TemplatesSection() {
                   placeholder="Link de ubicación"
                   value={form.maps_url}
                   onChange={(e) => handleFormChange("maps_url", e.target.value)}
-                  className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
                 />
-              )}
-              {editingKey && (
-                <div className="flex items-center justify-between text-xs text-zinc-400">
-                  <span>Editando {editingKey}</span>
-                  <button
-                    type="button"
-                    className="text-cyan-300"
-                    onClick={() => {
-                      setEditingKey("");
-                      setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
-                      setLinkEnabled(false);
-                      setDirty(false);
-                    }}
-                  >
-                    Limpiar
-                  </button>
-                </div>
               )}
               {dirty && !saving && <div className="text-[11px] text-amber-300">Tienes cambios sin guardar</div>}
               {saveError && <div className="text-red-400 text-sm">{saveError}</div>}
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold py-2 shadow-lg disabled:opacity-50"
-              >
-                {saving ? "Guardando…" : "Guardar plantilla"}
-              </button>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+                <button
+                  type="button"
+                  className="w-full sm:w-auto rounded-xl border border-zinc-700 px-4 py-2 text-sm text-white bg-zinc-900/60"
+                  onClick={closeModal}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold px-4 py-2 shadow-lg disabled:opacity-50"
+                >
+                  {saving ? "Guardando…" : editingKey ? "Actualizar plantilla" : "Guardar plantilla"}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -1245,6 +1280,8 @@ function TemplatesSection() {
     });
     setLinkEnabled(!!tpl.maps_url);
     setDirty(false);
+    setSaveError(null);
+    setShowTemplateModal(true);
   }
 
   function handleDuplicate(tpl: any) {
@@ -1257,7 +1294,9 @@ function TemplatesSection() {
       maps_url: tpl.maps_url || "",
     });
     setLinkEnabled(!!tpl.maps_url);
+    setSaveError(null);
     setDirty(true);
+    setShowTemplateModal(true);
   }
 
   async function uploadFile(file: File) {
