@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 const TENANT_ID = 26;
 const BUCKET = "media";
+const ENABLE_MEDIA_ASSETS = process.env.ENABLE_MEDIA_ASSETS === "true";
 
 const sanitizeFileName = (name: string) =>
   name
@@ -49,13 +50,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "PUBLIC_URL_ERROR" }, { status: 500 });
     }
 
-    try {
-      await db.query(
-        `INSERT INTO media_assets (tenant_id, file_name, public_url, storage_path, created_at) VALUES ($1, $2, $3, $4, NOW())`,
-        [TENANT_ID, file.name, publicUrl, path]
-      );
-    } catch (dbErr: any) {
-      console.warn("[UPLOAD] media_assets insert skipped", dbErr?.message || dbErr);
+    if (ENABLE_MEDIA_ASSETS) {
+      try {
+        await db.query(
+          `INSERT INTO media_assets (tenant_id, public_url, storage_path, created_at) VALUES ($1, $2, $3, NOW())`,
+          [TENANT_ID, publicUrl, path]
+        );
+      } catch (dbErr: any) {
+        console.warn("[UPLOAD] media_assets insert skipped", dbErr?.message || dbErr);
+      }
     }
 
     return NextResponse.json({ ok: true, url: publicUrl, path });
