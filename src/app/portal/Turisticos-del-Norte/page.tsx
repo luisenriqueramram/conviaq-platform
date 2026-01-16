@@ -399,8 +399,9 @@ function RoutesSection() {
     destination_city: "",
     calculate_times: false,
     active: true,
-    stopsText: "[]",
+    stops: [] as any[],
   });
+  const [stopDraft, setStopDraft] = useState({ name: "", minutes_offset: "", resource_ref: "" });
   const [routeSaving, setRouteSaving] = useState(false);
   const [routeSaveError, setRouteSaveError] = useState<string | null>(null);
 
@@ -510,8 +511,9 @@ function RoutesSection() {
                           destination_city: route.config?.destination_city || "",
                           calculate_times: !!route.config?.calculate_times,
                           active: route.active !== false,
-                          stopsText: JSON.stringify(route.stops || [], null, 2),
+                          stops: Array.isArray(route.stops) ? route.stops : [],
                         });
+                        setStopDraft({ name: "", minutes_offset: "", resource_ref: "" });
                       }}
                     >
                       Editar
@@ -546,7 +548,7 @@ function RoutesSection() {
                 <div className="text-xs text-zinc-500">Guarda en schema_json.routes</div>
               </div>
               {editingKey && (
-                <button className="text-xs text-cyan-300" onClick={() => { setEditingKey(""); setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stopsText: "[]" }); }}>
+                <button className="text-xs text-cyan-300" onClick={() => { setEditingKey(""); setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] }); setStopDraft({ name: "", minutes_offset: "", resource_ref: "" }); }}>
                   Limpiar
                 </button>
               )}
@@ -558,11 +560,11 @@ function RoutesSection() {
                 setRouteSaving(true);
                 setRouteSaveError(null);
                 try {
-                  let stopsParsed: any = [];
-                  if (routeForm.stopsText.trim()) {
-                    stopsParsed = JSON.parse(routeForm.stopsText);
-                    if (!Array.isArray(stopsParsed)) throw new Error("stops debe ser un arreglo");
-                  }
+                  const stopsParsed = (routeForm.stops || []).map((s, idx) => ({
+                    ...s,
+                    sequence: idx + 1,
+                    minutes_offset: Number(s.minutes_offset) || 0,
+                  }));
                   const next = { ...(rawSchema || {}) };
                   const routesCopy = { ...(next.routes || {}) };
                   const key = routeForm.key.trim() || routeForm.code.trim() || `RUTA_${Date.now()}`;
@@ -580,7 +582,8 @@ function RoutesSection() {
                   next.routes = routesCopy;
                   await saveRoutes(next);
                   setEditingKey("");
-                  setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stopsText: "[]" });
+                  setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
+                  setStopDraft({ name: "", minutes_offset: "", resource_ref: "" });
                 } catch (err: any) {
                   setRouteSaveError(err?.message || "Error al guardar");
                 } finally {
@@ -640,13 +643,98 @@ function RoutesSection() {
                 </label>
               </div>
               <div>
-                <div className="text-xs text-zinc-500 mb-1">Paradas (JSON Array)</div>
-                <textarea
-                  rows={6}
-                  value={routeForm.stopsText}
-                  onChange={(e) => setRouteForm((p) => ({ ...p, stopsText: e.target.value }))}
-                  className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none font-mono"
-                />
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <div className="text-xs text-zinc-500 mb-1">Nombre de parada</div>
+                    <input
+                      placeholder="Ej. Acayucan"
+                      value={stopDraft.name}
+                      onChange={(e) => setStopDraft((p) => ({ ...p, name: e.target.value }))}
+                      className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <div className="text-xs text-zinc-500 mb-1">Min +</div>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={stopDraft.minutes_offset}
+                      onChange={(e) => setStopDraft((p) => ({ ...p, minutes_offset: e.target.value }))}
+                      className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="w-40">
+                    <div className="text-xs text-zinc-500 mb-1">Recurso (opcional)</div>
+                    <input
+                      placeholder="UBI_CARDEL"
+                      value={stopDraft.resource_ref}
+                      onChange={(e) => setStopDraft((p) => ({ ...p, resource_ref: e.target.value }))}
+                      className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-sm font-semibold shadow"
+                    onClick={() => {
+                      if (!stopDraft.name.trim()) return;
+                      setRouteForm((p) => ({ ...p, stops: [...(p.stops || []), { ...stopDraft, minutes_offset: Number(stopDraft.minutes_offset) || 0 }] }));
+                      setStopDraft({ name: "", minutes_offset: "", resource_ref: "" });
+                    }}
+                  >
+                    + Parada
+                  </button>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {(routeForm.stops || []).length === 0 ? (
+                    <div className="text-xs text-zinc-500">Aún no hay paradas. Agrega al menos una.</div>
+                  ) : (
+                    (routeForm.stops || []).map((s: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2 rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2">
+                        <div className="text-xs text-zinc-500 w-6">{idx + 1}</div>
+                        <input
+                          value={s.name}
+                          onChange={(e) => {
+                            const next = [...(routeForm.stops || [])];
+                            next[idx] = { ...next[idx], name: e.target.value };
+                            setRouteForm((p) => ({ ...p, stops: next }));
+                          }}
+                          className="flex-1 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
+                        />
+                        <input
+                          type="number"
+                          value={s.minutes_offset ?? 0}
+                          onChange={(e) => {
+                            const next = [...(routeForm.stops || [])];
+                            next[idx] = { ...next[idx], minutes_offset: Number(e.target.value) };
+                            setRouteForm((p) => ({ ...p, stops: next }));
+                          }}
+                          className="w-24 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
+                        />
+                        <input
+                          value={s.resource_ref || ""}
+                          onChange={(e) => {
+                            const next = [...(routeForm.stops || [])];
+                            next[idx] = { ...next[idx], resource_ref: e.target.value };
+                            setRouteForm((p) => ({ ...p, stops: next }));
+                          }}
+                          className="w-32 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
+                          placeholder="Recurso"
+                        />
+                        <button
+                          type="button"
+                          className="text-xs text-red-300"
+                          onClick={() => {
+                            const next = [...(routeForm.stops || [])];
+                            next.splice(idx, 1);
+                            setRouteForm((p) => ({ ...p, stops: next }));
+                          }}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
               {routeSaveError && <div className="text-red-400 text-sm">{routeSaveError}</div>}
               <button
@@ -794,7 +882,7 @@ function TemplatesSection() {
               <div className="grid md:grid-cols-2 gap-3">
                 {templates.map((tpl) => (
                   <div key={tpl.key} className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 shadow space-y-2">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => handleSelect(tpl)}>
                       <div>
                         <div className="text-white font-semibold">{tpl.usage_description || tpl.key}</div>
                         <div className="text-xs text-blue-300 font-mono">{tpl.key}</div>
