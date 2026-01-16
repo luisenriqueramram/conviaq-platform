@@ -1007,8 +1007,8 @@ function TemplatesSection() {
         setSaving(false);
         return;
       }
-      if (form.client_message.length > 220) {
-        setSaveError("Máximo 220 caracteres");
+      if (form.client_message.length > 450) {
+        setSaveError("Máximo 450 caracteres");
         setSaving(false);
         return;
       }
@@ -1185,7 +1185,7 @@ function TemplatesSection() {
       {showTemplateModal && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4" onClick={closeModal}>
           <div
-            className="relative w-full max-w-3xl rounded-3xl bg-zinc-950 border border-blue-900/40 shadow-2xl p-6 md:p-8"
+            className="relative w-full max-w-3xl rounded-3xl bg-zinc-950 border border-blue-900/40 shadow-2xl p-6 md:p-8 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1215,13 +1215,13 @@ function TemplatesSection() {
               </select>
               <textarea
                 rows={4}
-                maxLength={220}
-                placeholder="Mensaje al cliente (máx 220)"
+                maxLength={450}
+                placeholder="Mensaje al cliente (máx 450)"
                 value={form.client_message}
                 onChange={(e) => handleFormChange("client_message", e.target.value)}
                 className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
-              <div className="text-[11px] text-zinc-500 text-right">{form.client_message.length}/220</div>
+              <div className="text-[11px] text-zinc-500 text-right">{form.client_message.length}/450</div>
               <div className="space-y-3 rounded-xl border border-blue-900/30 bg-zinc-900/70 p-3">
                 <div className="flex items-center justify-between text-xs text-zinc-400">
                   <span>Media (imagen/archivo). Se sube y genera URL pública.</span>
@@ -1255,13 +1255,14 @@ function TemplatesSection() {
 
                 {(mediaPreview || form.media_url) && form.response_type === "text" ? (
                   !imageFailed ? (
-                    <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex items-center justify-center">
+                    <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex flex-col gap-1 items-center justify-center">
                       <img
                         src={mediaPreview || form.media_url}
                         alt="media"
                         className="max-h-64 w-full object-contain"
                         onError={() => setImageFailed(true)}
                       />
+                      <div className="text-[11px] text-zinc-400">Vista previa</div>
                     </div>
                   ) : (
                     <div className="rounded-xl bg-black/30 border border-white/5 p-3 text-xs text-zinc-200 flex items-center justify-between">
