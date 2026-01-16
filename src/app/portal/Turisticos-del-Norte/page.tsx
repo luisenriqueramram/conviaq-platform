@@ -309,7 +309,7 @@ function CalendarSection() {
               <div className="text-xs text-zinc-500">Carga rápida con ruta, fecha, hora y precio.</div>
             </div>
           </div>
-          <form className="space-y-2" onSubmit={handleCreate}>
+                      <form className="space-y-2" onSubmit={handleCreate}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <input
                 required
@@ -407,9 +407,20 @@ function RoutesSection() {
   });
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [routeDirty, setRouteDirty] = useState(false);
+  const [routeSaved, setRouteSaved] = useState<string>("");
+  const [showAllStops, setShowAllStops] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [routeSaving, setRouteSaving] = useState(false);
   const [routeSaveError, setRouteSaveError] = useState<string | null>(null);
+
+  const markDirty = () => setRouteDirty(true);
+
+  useEffect(() => {
+    if (!routeSaved) return;
+    const t = setTimeout(() => setRouteSaved(""), 2500);
+    return () => clearTimeout(t);
+  }, [routeSaved]);
 
   useEffect(() => {
     setLoading(true);
@@ -462,6 +473,11 @@ function RoutesSection() {
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-4">Configuración de Rutas</h2>
       <div className="text-zinc-400 mb-4">Administra las rutas, paradas y horarios de tu Línea de Autobuses.</div>
+      {routeSaved && (
+        <div className="fixed bottom-6 right-6 z-20 rounded-xl bg-green-600/20 text-green-100 border border-green-500/40 px-4 py-3 shadow-lg">
+          {routeSaved}
+        </div>
+      )}
       {/* Se oculta tenant en UI para evitar ruido */}
       {loading ? (
         <div className="text-blue-300">Cargando rutas…</div>
@@ -501,6 +517,9 @@ function RoutesSection() {
                           stops: Array.isArray(route.stops) ? route.stops : [],
                         });
                         setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
+                        setRouteDirty(false);
+                        setRouteSaved("");
+                        setShowAllStops(false);
                       }}
                     >
                       Editar
@@ -508,6 +527,8 @@ function RoutesSection() {
                     <button
                       className="px-2 py-1 rounded text-xs bg-red-600/20 text-red-100 border border-red-600/40"
                       onClick={async () => {
+                        const ok = typeof window !== "undefined" ? window.confirm("¿Eliminar esta ruta?") : true;
+                        if (!ok) return;
                         try {
                           const next = { ...(rawSchema || {}), routes: { ...(rawSchema?.routes || {}) } };
                           delete next.routes[key];
@@ -535,6 +556,9 @@ function RoutesSection() {
                   setEditingKey("");
                   setRouteForm({ key: "", code: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
                   setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
+                  setRouteDirty(false);
+                  setRouteSaved("");
+                  setShowAllStops(false);
                 }}
               >
                 + Nueva ruta
@@ -547,12 +571,18 @@ function RoutesSection() {
                   <div>
                     <div className="text-white font-semibold">{editingKey ? "Editar ruta" : "Nueva ruta"}</div>
                     <div className="text-xs text-zinc-500">Para terminar, oprime guardar.</div>
+                    {routeDirty && <div className="text-[11px] text-amber-300">Tienes cambios sin guardar</div>}
+                    {!routeDirty && routeSaved && <div className="text-[11px] text-green-300">{routeSaved}</div>}
+                    {editingKey && <div className="text-[11px] text-blue-300/80">Clave interna: {editingKey}</div>}
                   </div>
                   <div className="flex gap-2 text-xs text-cyan-300">
                     <button
                       onClick={() => {
                         setShowForm(false);
                         setEditingKey("");
+                        setRouteDirty(false);
+                        setRouteSaved("");
+                        setShowAllStops(false);
                       }}
                     >
                       Cerrar
@@ -562,6 +592,9 @@ function RoutesSection() {
                         setEditingKey("");
                         setRouteForm({ key: "", code: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
                         setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
+                        setRouteDirty(false);
+                        setRouteSaved("");
+                        setShowAllStops(false);
                       }}
                     >
                       Limpiar
@@ -572,8 +605,17 @@ function RoutesSection() {
                   className="space-y-2"
                   onSubmit={async (e) => {
                     e.preventDefault();
+                    if (!routeForm.origin_city.trim() || !routeForm.destination_city.trim()) {
+                      setRouteSaveError("Indica Inicio y Fin");
+                      return;
+                    }
+                    if (!routeForm.stops || routeForm.stops.length === 0) {
+                      setRouteSaveError("Agrega al menos una parada");
+                      return;
+                    }
                     setRouteSaving(true);
                     setRouteSaveError(null);
+                    setRouteSaved("");
                     try {
                       const stopsParsed = (routeForm.stops || []).map((s, idx) => ({
                         ...s,
@@ -602,6 +644,9 @@ function RoutesSection() {
                       setRouteForm({ key: "", code: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
                       setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
                       setShowForm(false);
+                      setRouteDirty(false);
+                      setRouteSaved("Ruta guardada");
+                      setShowAllStops(false);
                     } catch (err: any) {
                       setRouteSaveError(err?.message || "Error al guardar");
                     } finally {
@@ -613,13 +658,13 @@ function RoutesSection() {
                     <input
                       placeholder="Inicio"
                       value={routeForm.origin_city}
-                      onChange={(e) => setRouteForm((p) => ({ ...p, origin_city: e.target.value }))}
+                      onChange={(e) => { setRouteForm((p) => ({ ...p, origin_city: e.target.value })); markDirty(); }}
                       className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
                     />
                     <input
                       placeholder="Fin"
                       value={routeForm.destination_city}
-                      onChange={(e) => setRouteForm((p) => ({ ...p, destination_city: e.target.value }))}
+                      onChange={(e) => { setRouteForm((p) => ({ ...p, destination_city: e.target.value })); markDirty(); }}
                       className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
@@ -628,7 +673,7 @@ function RoutesSection() {
                     <input
                       type="checkbox"
                       checked={routeForm.calculate_times}
-                      onChange={(e) => setRouteForm((p) => ({ ...p, calculate_times: e.target.checked }))}
+                      onChange={(e) => { setRouteForm((p) => ({ ...p, calculate_times: e.target.checked })); markDirty(); }}
                     />
                     Calcular tiempos automáticamente
                   </label>
@@ -692,6 +737,7 @@ function RoutesSection() {
                             stops: [...(p.stops || []), { ...stopDraft, minutes_offset: Number(stopDraft.minutes_offset) || 0 }],
                           }));
                           setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
+                          markDirty();
                         }}
                       >
                         + Parada
@@ -701,7 +747,7 @@ function RoutesSection() {
                       {(routeForm.stops || []).length === 0 ? (
                         <div className="text-xs text-zinc-500">Aún no hay paradas. Agrega al menos una.</div>
                       ) : (
-                        (routeForm.stops || []).map((s: any, idx: number) => (
+                        ((showAllStops ? (routeForm.stops || []) : (routeForm.stops || []).slice(0, 6))).map((s: any, idx: number) => (
                           <div
                             key={idx}
                             onDragOver={(e) => {
@@ -714,6 +760,7 @@ function RoutesSection() {
                               next.splice(idx, 0, moved);
                               setRouteForm((p) => ({ ...p, stops: next }));
                               setDraggingIndex(idx);
+                              markDirty();
                             }}
                             onDragLeave={() => setHoverIndex(null)}
                             onDragEnd={() => {
@@ -722,7 +769,8 @@ function RoutesSection() {
                             }}
                             className={cn(
                               "flex items-center gap-2 rounded-xl bg-zinc-900 border border-blue-900/30 px-3 py-2 transition-all duration-150",
-                              hoverIndex === idx ? "border-blue-500/60 bg-blue-900/20" : ""
+                              hoverIndex === idx ? "border-blue-500/60 bg-blue-900/20" : "",
+                              draggingIndex === idx ? "opacity-70 scale-[0.995]" : ""
                             )}
                           >
                             <div
@@ -744,6 +792,7 @@ function RoutesSection() {
                                 const next = [...(routeForm.stops || [])];
                                 next[idx] = { ...next[idx], name: e.target.value };
                                 setRouteForm((p) => ({ ...p, stops: next }));
+                                markDirty();
                               }}
                               className="flex-1 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
                             />
@@ -759,6 +808,7 @@ function RoutesSection() {
                                 const next = [...(routeForm.stops || [])];
                                 next[idx] = { ...next[idx], minutes_offset: hrs * 60 + mins };
                                 setRouteForm((p) => ({ ...p, stops: next }));
+                                markDirty();
                               }}
                               className="w-20 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
                             >
@@ -774,6 +824,7 @@ function RoutesSection() {
                                 const next = [...(routeForm.stops || [])];
                                 next[idx] = { ...next[idx], minutes_offset: hrs * 60 + mins };
                                 setRouteForm((p) => ({ ...p, stops: next }));
+                                markDirty();
                               }}
                               className="w-20 rounded-lg bg-transparent border border-blue-900/30 px-2 py-1 text-sm text-white"
                             >
@@ -789,12 +840,22 @@ function RoutesSection() {
                                 const next = [...(routeForm.stops || [])];
                                 next.splice(idx, 1);
                                 setRouteForm((p) => ({ ...p, stops: next }));
+                                markDirty();
                               }}
                             >
                               Eliminar
                             </button>
                           </div>
                         ))
+                      )}
+                      {(routeForm.stops || []).length > 6 && (
+                        <button
+                          type="button"
+                          className="text-xs text-cyan-300"
+                          onClick={() => setShowAllStops((v) => !v)}
+                        >
+                          {showAllStops ? "Ver menos" : `Ver todas (${routeForm.stops.length})`}
+                        </button>
                       )}
                     </div>
                   </div>
