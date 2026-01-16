@@ -1128,16 +1128,12 @@ function TemplatesSection() {
                     <div className="text-white font-semibold">{tpl.usage_description || "Sin título"}</div>
                     <div className="flex items-center gap-2">
                       {tpl.active === false && <span className="px-2 py-1 rounded-full text-xs bg-zinc-800 text-zinc-200 border border-zinc-600">Inactiva</span>}
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-900/30 text-blue-200">{tpl.response_type || "text"}</span>
                     </div>
                   </div>
                   {tpl.client_message && (
                     <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed line-clamp-2">{tpl.client_message}</div>
                   )}
                   <div className="flex items-center gap-3 text-xs">
-                    {tpl.media_url && (
-                      <a href={tpl.media_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver media</a>
-                    )}
                     {tpl.maps_url && (
                       <a href={tpl.maps_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver mapa</a>
                     )}
