@@ -202,14 +202,8 @@ function CalendarSection() {
   }, [filteredRows, calendarMonth]);
 
   useEffect(() => {
-    if (!rows.length) return;
-    if (filters.route || filters.status || filters.start || filters.end) return;
-    const latest = rows.slice().sort(compareRowsDesc)[0];
-    if (!latest) return;
-    const [y, m] = latest.trip_date.split("-").map(Number);
-    if (!y || !m) return;
-    setCalendarMonth(new Date(y, m - 1, 1));
-  }, [rows, filters]);
+    setCalendarMonth(new Date());
+  }, []);
 
   const formatCurrency = (value: number | string) =>
     Number(value).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -263,7 +257,7 @@ function CalendarSection() {
       <h2 className="text-2xl font-bold text-white mb-2">Calendario de Salidas</h2>
       <div className="text-zinc-400 mb-4">Aquí podrás ver y programar las salidas de tus rutas turísticas.</div>
 
-      <div className="grid lg:grid-cols-[2.2fr,1fr] gap-4">
+      <div className="grid gap-4">
         <div className="space-y-4">
           <div className="grid md:grid-cols-4 gap-2">
             <select
@@ -386,80 +380,6 @@ function CalendarSection() {
               )}
             </div>
           )}
-        </div>
-
-        <div className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-white font-semibold">Agregar salida</div>
-              <div className="text-xs text-zinc-500">Carga rápida con ruta, fecha, hora y precio.</div>
-            </div>
-          </div>
-                      <form className="space-y-2" onSubmit={handleCreate}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <input
-                required
-                placeholder="Ruta (ej. MZT-DF)"
-                value={form.route_key}
-                onChange={(e) => handleFormChange("route_key", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                required
-                type="date"
-                value={form.trip_date}
-                onChange={(e) => handleFormChange("trip_date", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                required
-                type="time"
-                value={form.departure_time}
-                onChange={(e) => handleFormChange("departure_time", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                required
-                type="number"
-                step="0.01"
-                placeholder="Precio"
-                value={form.price}
-                onChange={(e) => handleFormChange("price", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                placeholder="Origen"
-                value={form.origin_area}
-                onChange={(e) => handleFormChange("origin_area", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                placeholder="Destino"
-                value={form.destination_area}
-                onChange={(e) => handleFormChange("destination_area", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
-              <select
-                value={form.status}
-                onChange={(e) => handleFormChange("status", e.target.value)}
-                className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-              >
-                <option value="Activo">Activo</option>
-                <option value="Suspendido">Suspendido</option>
-                <option value="Cancelado">Cancelado</option>
-              </select>
-            </div>
-
-            {createError && <div className="text-red-400 text-sm">{createError}</div>}
-
-            <button
-              type="submit"
-              disabled={creating}
-              className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold py-2 shadow-lg disabled:opacity-50"
-            >
-              {creating ? "Guardando…" : "Guardar salida"}
-            </button>
-          </form>
         </div>
       </div>
     </div>
