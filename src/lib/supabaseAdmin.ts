@@ -1,27 +1,23 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+let supabaseAdminClient: SupabaseClient | null = null;
 
-// 👇 LOGS TEMPORALES PARA VER QUÉ LLEGA
-console.log('🔍 NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl);
-console.log(
-  '🔍 SUPABASE_SERVICE_ROLE_KEY (inicio):',
-  supabaseServiceRoleKey ? supabaseServiceRoleKey.slice(0, 8) + '...' : supabaseServiceRoleKey
-);
+export function getSupabaseAdmin(): SupabaseClient {
+  if (supabaseAdminClient) return supabaseAdminClient;
 
-// 👇 VALIDACIÓN CLARA
-if (!supabaseUrl) {
-  throw new Error('ENV ERROR: NEXT_PUBLIC_SUPABASE_URL no está definida');
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error("Supabase env vars missing: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  supabaseAdminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  return supabaseAdminClient;
 }
-
-if (!supabaseServiceRoleKey) {
-  throw new Error('ENV ERROR: SUPABASE_SERVICE_ROLE_KEY no está definida');
-}
-
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});

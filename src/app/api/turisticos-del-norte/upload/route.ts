@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Buffer } from "buffer";
 import { requireSession } from "@/lib/server/session";
 import { db } from "@/lib/db";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 const TENANT_ID = 26;
 const BUCKET = "media";
@@ -17,6 +17,7 @@ const sanitizeFileName = (name: string) =>
 // POST: Subir imagen y guardar en media_assets
 export async function POST(req: Request) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const { tenantId } = await requireSession();
     if (Number(tenantId) !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
@@ -63,6 +64,7 @@ export async function POST(req: Request) {
 // DELETE: eliminar un archivo del storage y limpiar media_assets
 export async function DELETE(req: Request) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const { tenantId } = await requireSession();
     if (Number(tenantId) !== TENANT_ID) {
       return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
