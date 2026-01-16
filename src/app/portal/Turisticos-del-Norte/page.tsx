@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -910,11 +910,13 @@ function TemplatesSection() {
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState({
     usage_description: "",
     response_type: "text",
     client_message: "",
     media_url: "",
+    media_path: "",
     maps_url: "",
   });
   const [editingKey, setEditingKey] = useState<string>("");
@@ -922,7 +924,7 @@ function TemplatesSection() {
 
   const resetFormState = () => {
     setEditingKey("");
-    setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
+    setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", media_path: "", maps_url: "" });
     setLinkEnabled(false);
     setDirty(false);
     setSaveError(null);
@@ -1027,12 +1029,13 @@ function TemplatesSection() {
         response_type: form.response_type,
         client_message: form.client_message,
         media_url: form.media_url || null,
+        media_path: form.media_path || null,
         maps_url: linkEnabled ? (form.maps_url || null) : null,
         active: existing.active ?? true,
       };
       nextSchema.resources = resources;
       await saveResources(nextSchema);
-      setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", maps_url: "" });
+      setForm({ usage_description: "", response_type: "text", client_message: "", media_url: "", media_path: "", maps_url: "" });
       setEditingKey("");
       setLinkEnabled(false);
       setDirty(false);
@@ -1095,10 +1098,7 @@ function TemplatesSection() {
                 .map((tpl) => (
                 <div key={tpl.key} className="rounded-2xl bg-zinc-900/70 border border-blue-900/30 p-4 shadow space-y-2">
                   <div className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => handleSelect(tpl)}>
-                    <div>
-                      <div className="text-white font-semibold">{tpl.usage_description || tpl.key}</div>
-                      <div className="text-xs text-blue-300 font-mono">{tpl.key}</div>
-                    </div>
+                    <div className="text-white font-semibold">{tpl.usage_description || "Sin título"}</div>
                     <div className="flex items-center gap-2">
                       {tpl.active === false && <span className="px-2 py-1 rounded-full text-xs bg-zinc-800 text-zinc-200 border border-zinc-600">Inactiva</span>}
                       <span className="px-2 py-1 rounded-full text-xs bg-blue-900/30 text-blue-200">{tpl.response_type || "text"}</span>
@@ -1130,6 +1130,9 @@ function TemplatesSection() {
                         try {
                           const next = { ...(rawSchema || {}), resources: { ...(rawSchema?.resources || {}) } };
                           delete next.resources[tpl.key];
+                          if (tpl.media_path) {
+                            await deleteMediaFromStorage(tpl.media_path);
+                          }
                           await saveResources(next);
                         } catch (e) {
                           setSaveError("No se pudo eliminar");
@@ -1163,14 +1166,10 @@ function TemplatesSection() {
               className="absolute top-3 right-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white px-3 py-1 text-sm"
               onClick={closeModal}
             >
-              Cerrar
+              ×
             </button>
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
-              <div>
-                <div className="text-white font-semibold text-lg">{editingKey ? "Editar plantilla" : "Nueva plantilla"}</div>
-                <div className="text-xs text-zinc-500">Se guarda en schema_json.resources. El key se genera automáticamente en MAYÚSCULAS.</div>
-              </div>
-              {editingKey && <span className="px-2 py-1 rounded-full text-xs bg-zinc-800 text-blue-200 border border-blue-900/40">{editingKey}</span>}
+              <div className="text-white font-semibold text-lg">{editingKey ? "Editar plantilla" : "Nueva plantilla"}</div>
             </div>
 
             <form className="space-y-3" onSubmit={handleAdd}>
@@ -1186,8 +1185,6 @@ function TemplatesSection() {
                 className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
               >
                 <option value="text">Texto</option>
-                <option value="image">Imagen</option>
-                <option value="location_image">Ubicación + imagen</option>
               </select>
               <textarea
                 rows={4}
@@ -1198,9 +1195,47 @@ function TemplatesSection() {
                 className="w-full rounded-xl bg-zinc-900/70 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
               />
               <div className="text-[11px] text-zinc-500 text-right">{form.client_message.length}/220</div>
-              <div className="space-y-2 rounded-xl border border-blue-900/30 bg-zinc-900/70 p-3">
-                <div className="text-xs text-zinc-400">Media (imagen/archivo). Se sube y genera URL pública.</div>
+              <div className="space-y-3 rounded-xl border border-blue-900/30 bg-zinc-900/70 p-3">
+                <div className="flex items-center justify-between text-xs text-zinc-400">
+                  <span>Media (imagen/archivo). Se sube y genera URL pública.</span>
+                  {form.media_url && (
+                    <div className="flex items-center gap-2">
+                      <a href={form.media_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Descargar</a>
+                      <button
+                        type="button"
+                        className="text-amber-300"
+                        onClick={() => replaceInputRef.current?.click()}
+                      >
+                        Reemplazar
+                      </button>
+                      <button
+                        type="button"
+                        className="text-red-300"
+                        onClick={async () => {
+                          const prev = form.media_path;
+                          setForm((p) => ({ ...p, media_url: "", media_path: "" }));
+                          setDirty(true);
+                          if (prev) await deleteMediaFromStorage(prev);
+                        }}
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {form.media_url && form.response_type === "text" ? (
+                  <div className="rounded-xl bg-black/30 border border-white/5 p-2 flex items-center justify-center">
+                    <img
+                      src={form.media_url}
+                      alt="media"
+                      className="max-h-64 w-full object-contain"
+                    />
+                  </div>
+                ) : null}
+
                 <input
+                  ref={replaceInputRef}
                   type="file"
                   accept="image/*,application/pdf"
                   onChange={async (e) => {
@@ -1208,25 +1243,25 @@ function TemplatesSection() {
                     if (!file) return;
                     setUploading(true);
                     setSaveError(null);
+                    const prevPath = form.media_path;
                     try {
-                      const url = await uploadFile(file);
-                      setForm((p) => ({ ...p, media_url: url }));
+                      const uploaded = await uploadFile(file);
+                      setForm((p) => ({ ...p, media_url: uploaded.url, media_path: uploaded.path || "" }));
                       setDirty(true);
+                      if (prevPath) {
+                        await deleteMediaFromStorage(prevPath);
+                      }
                     } catch (err: any) {
                       setSaveError(err?.message || "No se pudo subir el archivo");
                     } finally {
                       setUploading(false);
                     }
+                    // limpia para permitir volver a subir el mismo archivo si se desea
+                    if (e.target) (e.target as HTMLInputElement).value = "";
                   }}
                   className="w-full text-sm text-zinc-200"
                 />
                 {uploading && <div className="text-xs text-blue-300">Subiendo archivo…</div>}
-                {form.media_url && (
-                  <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <a href={form.media_url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Ver archivo</a>
-                    <button type="button" className="text-red-300" onClick={() => setForm((p) => ({ ...p, media_url: "" }))}>Quitar</button>
-                  </div>
-                )}
               </div>
               <label className="flex items-center gap-2 text-sm text-white">
                 <input
@@ -1276,6 +1311,7 @@ function TemplatesSection() {
       response_type: tpl.response_type || "text",
       client_message: tpl.client_message || "",
       media_url: tpl.media_url || "",
+      media_path: tpl.media_path || "",
       maps_url: tpl.maps_url || "",
     });
     setLinkEnabled(!!tpl.maps_url);
@@ -1291,6 +1327,7 @@ function TemplatesSection() {
       response_type: tpl.response_type || "text",
       client_message: tpl.client_message || "",
       media_url: tpl.media_url || "",
+      media_path: tpl.media_path || "",
       maps_url: tpl.maps_url || "",
     });
     setLinkEnabled(!!tpl.maps_url);
@@ -1318,7 +1355,20 @@ function TemplatesSection() {
     }
     const data = await res.json();
     if (!data?.url) throw new Error("Respuesta sin URL");
-    return data.url as string;
+    return { url: data.url as string, path: data.path as string | undefined };
+  }
+
+  async function deleteMediaFromStorage(path?: string) {
+    if (!path) return;
+    try {
+      await fetch("/api/turisticos-del-norte/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path }),
+      });
+    } catch (e) {
+      console.error("No se pudo eliminar de storage", e);
+    }
   }
 
   async function saveResources(nextSchema: any) {
