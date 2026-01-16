@@ -399,7 +399,7 @@ function CalendarSection() {
                         key={dateKey}
                         onClick={() => setSelectedDateKey(dateKey)}
                         className={cn(
-                          "min-h-[110px] rounded-xl border bg-zinc-950/60 p-2 space-y-2 text-left transition",
+                          "min-h-[110px] rounded-xl border bg-zinc-950/60 p-2 space-y-2 text-left transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-md",
                           dateKey === todayKey ? "border-cyan-400/70 shadow-[0_0_0_1px_rgba(34,211,238,0.35)]" : "border-blue-900/30",
                           selectedDateKey === dateKey ? "ring-1 ring-cyan-400/40" : ""
                         )}
@@ -410,7 +410,7 @@ function CalendarSection() {
                         ) : (
                           <div className="space-y-1">
                             {visible.map((row) => (
-                              <div key={row.id} className="rounded-lg border border-blue-900/30 bg-zinc-900/70 px-2 py-1">
+                              <div key={row.id} className="rounded-lg border border-blue-900/30 bg-zinc-900/70 px-2 py-1 transition-all duration-200 hover:border-blue-500/50 hover:bg-zinc-900/90">
                                 <div className="flex items-center justify-between text-[10px] text-zinc-300">
                                   <span className="flex items-center gap-2 font-semibold text-zinc-100 truncate">
                                     <span className={cn("h-2 w-2 rounded-full", getRouteDot(row.route_key))} />
