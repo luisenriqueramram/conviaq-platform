@@ -49,13 +49,35 @@ export async function PATCH(req: Request) {
     if (!schema_json) {
       return NextResponse.json({ error: "NO_SCHEMA_JSON" }, { status: 400 });
     }
-    const res = await db.query(
+    // Intentar actualizar el registro del industry específico
+    let res = await db.query(
       `UPDATE industry_configs SET schema_json = $1 WHERE tenant_id = $2 AND industry = $3 RETURNING id, schema_json`,
       [schema_json, TENANT_ID, INDUSTRY]
     );
+
+    // Fallback: si no existe el industry esperado, usa el primer registro del tenant
     if (!res.rows[0]) {
-      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+      const fallback = await db.query(
+        `SELECT id FROM industry_configs WHERE tenant_id = $1 ORDER BY id ASC LIMIT 1`,
+        [TENANT_ID]
+      );
+      if (fallback.rows[0]?.id) {
+        res = await db.query(
+          `UPDATE industry_configs SET schema_json = $1, industry = $2 WHERE id = $3 RETURNING id, schema_json`,
+          [schema_json, INDUSTRY, fallback.rows[0].id]
+        );
+      }
     }
+
+    // Si tampoco hay fallback, crear el registro
+    if (!res.rows[0]) {
+      const inserted = await db.query(
+        `INSERT INTO industry_configs (tenant_id, industry, schema_json) VALUES ($1, $2, $3) RETURNING id, schema_json`,
+        [TENANT_ID, INDUSTRY, schema_json]
+      );
+      res = inserted;
+    }
+
     return NextResponse.json({ ok: true, config: res.rows[0] });
   } catch (error) {
     console.error("[API] PATCH turisticos-del-norte/config", error);

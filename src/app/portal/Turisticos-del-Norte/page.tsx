@@ -394,7 +394,6 @@ function RoutesSection() {
   const [routeForm, setRouteForm] = useState({
     key: "",
     code: "",
-    name: "",
     origin_city: "",
     destination_city: "",
     calculate_times: false,
@@ -406,6 +405,7 @@ function RoutesSection() {
     minutes_offset: 0,
     resource_ref: "",
   });
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [routeSaving, setRouteSaving] = useState(false);
   const [routeSaveError, setRouteSaveError] = useState<string | null>(null);
@@ -460,7 +460,7 @@ function RoutesSection() {
   return (
     <div className="rounded-3xl bg-gradient-to-br from-zinc-900/90 to-zinc-800/80 border border-blue-900/30 shadow-xl p-8 flex flex-col gap-4 min-h-[220px]">
       <h2 className="text-2xl font-bold text-white mb-4">Configuración de Rutas</h2>
-      <div className="text-zinc-400 mb-4">Administra las rutas, paradas y horarios de tu empresa turística.</div>
+      <div className="text-zinc-400 mb-4">Administra las rutas, paradas y horarios de tu Línea de Autobuses.</div>
       {/* Se oculta tenant en UI para evitar ruido */}
       {loading ? (
         <div className="text-blue-300">Cargando rutas…</div>
@@ -480,8 +480,9 @@ function RoutesSection() {
               <div key={key} className="rounded-2xl bg-zinc-900/80 border border-blue-900/30 p-4 flex flex-col gap-2 shadow-md">
                 <div className="flex items-center justify-between mb-1">
                   <div>
-                    <div className="text-lg font-bold text-white">{route.name}</div>
-                    <div className="text-xs text-blue-300 font-mono">{route.code || key}</div>
+                    <div className="text-lg font-bold text-white">{route.config?.origin_city || "Inicio"} → {route.config?.destination_city || "Fin"}</div>
+                    <div className="text-xs text-blue-300/60">{route.name || ""}</div>
+                    <div className="text-[11px] text-zinc-500">{Array.isArray(route.stops) ? route.stops.length : 0} paradas</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -492,7 +493,6 @@ function RoutesSection() {
                         setRouteForm({
                           key: String(key),
                           code: route.code || String(key),
-                          name: route.name || "",
                           origin_city: route.config?.origin_city || "",
                           destination_city: route.config?.destination_city || "",
                           calculate_times: !!route.config?.calculate_times,
@@ -520,8 +520,6 @@ function RoutesSection() {
                     </button>
                   </div>
                 </div>
-                <div className="text-xs text-zinc-400">{route.config?.origin_city} → {route.config?.destination_city}</div>
-                <div className="text-xs text-zinc-500">{route.stops?.length || 0} paradas</div>
               </div>
               ))
             )}
@@ -534,7 +532,7 @@ function RoutesSection() {
                 onClick={() => {
                   setShowForm(true);
                   setEditingKey("");
-                  setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
+                  setRouteForm({ key: "", code: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
                   setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
                 }}
               >
@@ -547,7 +545,7 @@ function RoutesSection() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-white font-semibold">{editingKey ? "Editar ruta" : "Nueva ruta"}</div>
-                    <div className="text-xs text-zinc-500">Guardar = PATCH schema_json.routes</div>
+                    <div className="text-xs text-zinc-500">Para terminar, oprime guardar.</div>
                   </div>
                   <div className="flex gap-2 text-xs text-cyan-300">
                     <button
@@ -561,7 +559,7 @@ function RoutesSection() {
                     <button
                       onClick={() => {
                         setEditingKey("");
-                        setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
+                        setRouteForm({ key: "", code: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
                         setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
                       }}
                     >
@@ -583,11 +581,12 @@ function RoutesSection() {
                       }));
                       const next = { ...(rawSchema || {}) };
                       const routesCopy = { ...(next.routes || {}) };
-                      const baseKey = routeForm.key.trim() || routeForm.code.trim() || routeForm.name.trim();
+                      const baseKey = routeForm.key.trim() || routeForm.code.trim() || `${routeForm.origin_city} ${routeForm.destination_city}`.trim();
                       const safeKey = (baseKey || `RUTA_${Date.now()}`).replace(/\s+/g, "_").toUpperCase();
+                      const routeLabel = `${routeForm.origin_city || "Inicio"} → ${routeForm.destination_city || "Fin"}`.trim();
                       routesCopy[safeKey] = {
                         code: routeForm.code || safeKey,
-                        name: routeForm.name || safeKey,
+                        name: routeLabel,
                         stops: stopsParsed,
                         active: true,
                         config: {
@@ -599,7 +598,7 @@ function RoutesSection() {
                       next.routes = routesCopy;
                       await saveRoutes(next);
                       setEditingKey("");
-                      setRouteForm({ key: "", code: "", name: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
+                      setRouteForm({ key: "", code: "", origin_city: "", destination_city: "", calculate_times: false, active: true, stops: [] });
                       setStopDraft({ name: "", minutes_offset: 0, resource_ref: "" });
                       setShowForm(false);
                     } catch (err: any) {
@@ -609,26 +608,21 @@ function RoutesSection() {
                     }
                   }}
                 >
-                  <input
-                    placeholder="Nombre de la ruta"
-                    value={routeForm.name}
-                    onChange={(e) => setRouteForm((p) => ({ ...p, name: e.target.value }))}
-                    className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-                  />
                   <div className="grid grid-cols-2 gap-2">
                     <input
-                      placeholder="Punto de salida"
+                      placeholder="Inicio"
                       value={routeForm.origin_city}
                       onChange={(e) => setRouteForm((p) => ({ ...p, origin_city: e.target.value }))}
                       className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
                     />
                     <input
-                      placeholder="Punto de llegada"
+                      placeholder="Fin"
                       value={routeForm.destination_city}
                       onChange={(e) => setRouteForm((p) => ({ ...p, destination_city: e.target.value }))}
                       className="w-full rounded-xl bg-zinc-950/60 border border-blue-900/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
+                  <div className="text-xs text-blue-200/80 font-mono">Vista previa: {(routeForm.origin_city || "Inicio").trim()} → {(routeForm.destination_city || "Fin").trim()}</div>
                   <label className="flex items-center gap-2 text-sm text-white">
                     <input
                       type="checkbox"
@@ -706,7 +700,22 @@ function RoutesSection() {
                         <div className="text-xs text-zinc-500">Aún no hay paradas. Agrega al menos una.</div>
                       ) : (
                         (routeForm.stops || []).map((s: any, idx: number) => (
-                          <div key={idx} className="flex items-center gap-2 rounded-xl bg-zinc-900 border border-blue-900/30 px-3 py-2">
+                          <div
+                            key={idx}
+                            draggable
+                            onDragStart={() => setDraggingIndex(idx)}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              if (draggingIndex === null || draggingIndex === idx) return;
+                              const next = [...(routeForm.stops || [])];
+                              const [moved] = next.splice(draggingIndex, 1);
+                              next.splice(idx, 0, moved);
+                              setRouteForm((p) => ({ ...p, stops: next }));
+                              setDraggingIndex(idx);
+                            }}
+                            onDragEnd={() => setDraggingIndex(null)}
+                            className="flex items-center gap-2 rounded-xl bg-zinc-900 border border-blue-900/30 px-3 py-2"
+                          >
                             <div className="text-xs text-zinc-500 w-6">{idx + 1}</div>
                             <input
                               value={s.name}
@@ -752,33 +761,6 @@ function RoutesSection() {
                                 return <option key={v} value={v}>{v}m</option>;
                               })}
                             </select>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                className="text-xs text-blue-300"
-                                onClick={() => {
-                                  if (idx === 0) return;
-                                  const next = [...(routeForm.stops || [])];
-                                  const [removed] = next.splice(idx, 1);
-                                  next.splice(idx - 1, 0, removed);
-                                  setRouteForm((p) => ({ ...p, stops: next }));
-                                }}
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                className="text-xs text-blue-300"
-                                onClick={() => {
-                                  const next = [...(routeForm.stops || [])];
-                                  const [removed] = next.splice(idx, 1);
-                                  next.splice(idx + 1, 0, removed);
-                                  setRouteForm((p) => ({ ...p, stops: next }));
-                                }}
-                              >
-                                ↓
-                              </button>
-                            </div>
                             <button
                               type="button"
                               className="text-xs text-red-300"
