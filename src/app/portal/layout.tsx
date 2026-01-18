@@ -160,6 +160,20 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
         const isPlan10 = planId === 10;
         const isSuper = Boolean(json?.is_superadmin);
 
+        let hasEvolution = true;
+        try {
+          const waRes = await fetch('/api/channels/whatsapp/status');
+          if (waRes.ok) {
+            const waJson = await waRes.json();
+            const reason = waJson?.data?.reason ?? waJson?.reason ?? null;
+            if (reason === 'NO_INSTANCE') {
+              hasEvolution = false;
+            }
+          }
+        } catch {
+          hasEvolution = true;
+        }
+
         // Load custom modules
         const modulesRes = await fetch('/api/tenant/custom-modules');
         if (modulesRes.ok) {
@@ -205,7 +219,9 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
         });
 
         const baseSecondary = isPlan10 || isSuper ? [...secondaryItems, superAdminItem] : secondaryItems;
-        const filteredSecondary = baseSecondary.filter((it) => allowedSecondary.includes(it.href));
+        const filteredSecondary = baseSecondary
+          .filter((it) => allowedSecondary.includes(it.href))
+          .filter((it) => (it.href === '/portal/channels/whatsapp' ? hasEvolution : true));
 
         setVisibleNavItems(filtered);
         setVisibleSecondaryItems(filteredSecondary);
