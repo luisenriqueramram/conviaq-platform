@@ -107,6 +107,7 @@ export default function PortalDashboardPage() {
   const [rangeKey, setRangeKey] = useState<'week' | 'month' | 'last3' | 'last2' | 'last24h'>('week');
   const [runtimeState, setRuntimeState] = useState<any>(null);
   const [waStatus, setWaStatus] = useState<'CONNECTED' | 'CONNECTING' | 'DISCONNECTED' | null>(null);
+  const [hasEvolution, setHasEvolution] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -175,6 +176,8 @@ export default function PortalDashboardPage() {
         setConvMetrics(convRes?.data ?? null);
         setRuntimeState(rtRes?.data ?? null);
         setWaStatus(waRes?.data?.status ?? null);
+        const reason = waRes?.data?.reason ?? waRes?.reason ?? null;
+        setHasEvolution(reason !== 'NO_INSTANCE');
       } catch (e) {
         console.warn('Dashboard fetch error', e);
       } finally {
@@ -453,7 +456,9 @@ export default function PortalDashboardPage() {
           >
             <div className="grid gap-3 pt-4">
               <StatusRow label="Bot encendido" ok={runtimeState ? !runtimeState.ai_force_off : false} />
-              <StatusRow label="WhatsApp conectado" ok={waStatus === 'CONNECTED'} />
+              {hasEvolution && (
+                <StatusRow label="WhatsApp conectado" ok={waStatus === 'CONNECTED'} />
+              )}
               <div className="flex items-center justify-between gap-3 rounded-lg border border-white/5 bg-black/20 px-4 py-3">
                 <div className="text-xs font-medium text-zinc-400">Plan</div>
                 <div className="text-xs font-medium text-zinc-300">{me?.plan?.name ?? '—'}</div>
