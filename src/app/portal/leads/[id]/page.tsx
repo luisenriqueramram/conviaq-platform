@@ -145,21 +145,21 @@ export default function LeadDetailPage() {
         setNewNote("");
       } else {
         setError(data.error || "Failed to save note");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setSavingNote(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-400 mx-auto" />
-          <p className="text-zinc-400">Cargando lead...</p>
-        </div>
+         interface Lead {
+           id: string;
+           name: string;
+           company?: string;
+           email?: string;
+           phone?: string;
+           dealValue?: number;
+           currency: string;
+           stageId?: number;
+           pipelineId?: number;
+           stageName?: string;
+           pipelineName?: string;
+           summaryText?: string;
+           tags?: Tag[];
+         }
       </div>
     );
   }
