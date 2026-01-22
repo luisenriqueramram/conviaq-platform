@@ -71,23 +71,6 @@ import { useParams } from "next/navigation";
         setNewNote("");
       } else {
         setError(data.error || "Failed to save note");
-         interface Lead {
-           id: string;
-           name: string;
-           company?: string;
-           email?: string;
-           phone?: string;
-           dealValue?: number;
-           currency: string;
-           stageId?: number;
-           pipelineId?: number;
-           stageName?: string;
-           pipelineName?: string;
-           summaryText?: string;
-           tags?: Tag[];
-         }
-      </div>
-    );
   }
 
   if (error || !lead) {
