@@ -329,6 +329,7 @@ export default function PipelineFlowPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
