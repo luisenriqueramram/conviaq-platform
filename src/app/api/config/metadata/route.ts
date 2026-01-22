@@ -1,15 +1,17 @@
 // src/app/api/config/metadata/route.ts
 import { NextResponse } from 'next/server';
 import { getConfigMetadata } from '@/lib/db-autolavado';
+import { requireSession } from '@/lib/server/session';
 
-export async function GET(req: Request) {
-  // Aquí deberías obtener el tenant_id del usuario autenticado o del request
-  // Por simplicidad, lo dejo como un valor fijo o puedes extraerlo de un header/query
-  const tenant_id = req.headers.get('x-tenant-id') || null;
+export async function GET() {
   try {
-    const data = await getConfigMetadata(tenant_id);
+    const { tenantId } = await requireSession();
+    const data = await getConfigMetadata(tenantId ?? null);
     return NextResponse.json({ ok: true, data });
   } catch (error: any) {
+    if (String(error?.message) === 'UNAUTHORIZED') {
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 }

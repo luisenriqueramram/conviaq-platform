@@ -168,7 +168,7 @@ export async function queryAutolavado<T = any>(
 }
 
 // Obtiene etapas y etiquetas fusionadas (universales + tenant) para el Kanban y selects
-export async function getConfigMetadata(tenant_id: string | null) {
+export async function getConfigMetadata(tenant_id: number | null) {
   const sql = `
     SELECT json_build_object(
       'stages', (
@@ -176,8 +176,8 @@ export async function getConfigMetadata(tenant_id: string | null) {
          FROM (
             SELECT id, name, color, position, 
                    CASE WHEN tenant_id IS NULL THEN 0 ELSE 1 END as t_order
-            FROM public.pipeline_stages 
-            WHERE (tenant_id = $1 OR tenant_id IS NULL)
+        FROM public.pipeline_stages 
+        WHERE (tenant_id = $1::bigint OR tenant_id IS NULL)
          ) s
       ),
       'tags', (
@@ -185,8 +185,8 @@ export async function getConfigMetadata(tenant_id: string | null) {
          FROM (
             SELECT id, name, color, description, 
                    CASE WHEN tenant_id IS NULL THEN true ELSE false END as is_system
-            FROM public.tags 
-            WHERE (tenant_id = $1 OR tenant_id IS NULL)
+        FROM public.tags 
+        WHERE (tenant_id = $1::bigint OR tenant_id IS NULL)
          ) t
       )
     ) as config;
