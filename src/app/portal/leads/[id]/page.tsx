@@ -321,5 +321,8 @@ import { useParams } from "next/navigation";
         )}
       </div>
     </div>
-  );
+	);
+}
+
+export default LeadDetailPage;
 
