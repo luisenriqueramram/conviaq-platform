@@ -1,6 +1,6 @@
 export async function PATCH(req: Request, ctx: Ctx) {
   try {
-    const { tenantId, user } = await requireSession();
+    const { tenantId, userId } = await requireSession();
     const p = await Promise.resolve(ctx.params);
     const leadId = Number(p.id);
     if (!Number.isFinite(leadId)) {
@@ -32,7 +32,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     await db.query(
       `INSERT INTO lead_activity_log (lead_id, tenant_id, activity_type, description, performed_by_ai, metadata, created_at)
        VALUES ($1, $2, 'human_update', 'Actualización manual desde el panel', false, $3, NOW())`,
-      [leadId, tenantId, JSON.stringify({ changes: 'Lead updated by user', user: user?.name || user?.id })]
+      [leadId, tenantId, JSON.stringify({ changes: 'Lead updated by user', userId })]
     );
 
     return NextResponse.json({ ok: true });
