@@ -14,7 +14,6 @@ type RawLeadRow = {
   contact_name: string | null;
   contact_email: string | null;
   phone_e164: string | null;
-  tags: Array<{ id: number; name: string; color: string | null; is_system: boolean }> | null;
 };
 
 type StageRow = {
@@ -54,23 +53,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
         l.created_at,
         c.name AS contact_name,
         c.email AS contact_email,
-        c.phone_e164,
-        COALESCE(
-          (
-            SELECT json_agg(
-              json_build_object(
-                'id', t.id,
-                'name', t.name,
-                'color', t.color,
-                'is_system', CASE WHEN t.tenant_id IS NULL THEN true ELSE false END
-              )
-            ORDER BY t.name)
-            FROM taggings tg
-            JOIN tags t ON t.id = tg.tag_id
-            WHERE tg.lead_id = l.id
-          ),
-          '[]'::json
-        ) AS tags
+        c.phone_e164
       FROM leads l
       LEFT JOIN contacts c ON c.id = l.contact_id
       WHERE l.pipeline_id = $1 AND l.tenant_id = $2
@@ -96,7 +79,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
       phone: row.phone ?? row.phone_e164 ?? "",
       stage: row.stage_id,
       date: row.created_at ? row.created_at.toISOString() : null,
-      tags: row.tags ?? [],
+      tags: [],
     }));
 
     return NextResponse.json({
