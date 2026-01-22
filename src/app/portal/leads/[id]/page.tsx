@@ -8,63 +8,10 @@ import { useParams } from "next/navigation";
   id: string;
   name: string;
   company?: string;
-  email?: string;
+  import { Plus, Loader2, AlertCircle, Send, Lock, Globe, Bot, User as UserIcon, ChevronDown, ChevronUp } from "lucide-react";
   phone?: string;
   dealValue?: number;
-  currency: string;
-  stageId?: number;
-  pipelineId?: number;
-  stageName?: string;
-  pipelineName?: string;
-  summaryText?: string;
-  tags?: Tag[];
-};
-
-type Tag = {
-  id: number;
-  name: string;
-  color: string;
-  is_system: boolean;
-};
-type Activity = {
-  id: number;
-  activity_type: string;
-  description: string;
-  performed_by_ai: boolean;
-  created_at: string;
-  metadata: any;
-};
-
-type ChatMessage = {
-  id: number;
-  sender: string;
-  message: string;
-  sent_at: string;
-};
-
-type Note = {
-  id: number;
-  content: string;
-  authorType: string;
-  authorId?: number;
-  createdAt: string;
-};
-
-type Reminder = {
-  id: number;
-  text: string;
-  dueAt: string;
-  active: boolean;
-  createdAt: string;
-};
-
-export default function LeadDetailPage() {
-  const params = useParams();
-  const leadId = params.id as string;
-
-  const [lead, setLead] = useState<Lead | null>(null);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [reminders, setReminders] = useState<Reminder[]>([]);
+  import type { Lead, Tag, Activity, ChatMessage, Note, Reminder } from "@/types/lead";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newNote, setNewNote] = useState("");
