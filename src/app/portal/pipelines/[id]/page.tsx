@@ -1,8 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowRight, Plus, Trash2, User, Phone, Mail, Calendar } from 'lucide-react';
+
+
+type Tag = {
+  id: number;
+  name: string;
+  color: string;
+  is_system: boolean;
+};
 
 type Lead = {
   id: number;
@@ -11,68 +19,63 @@ type Lead = {
   phone: string;
   stage: number;
   date: string;
+  tags?: Tag[];
 };
 
-type Pipeline = {
+
+type Stage = {
   id: number;
   name: string;
   color: string;
-  stages: string[];
-  leads: Lead[];
+  position: number;
 };
 
-const pipelineData: Record<string, Pipeline> = {
-  '1': {
-    id: 1,
-    name: 'Ventas',
-    color: 'from-blue-400 to-blue-600',
-    stages: ['Prospecto', 'Contactado', 'Propuesta', 'Negociación', 'Cerrado'],
-    leads: [
-      { id: 1, name: 'Juan García', email: 'juan@empresa.com', phone: '+34 612 345 678', stage: 0, date: '2025-12-20' },
-      { id: 2, name: 'María López', email: 'maria@empresa.com', phone: '+34 623 456 789', stage: 1, date: '2025-12-19' },
-      { id: 3, name: 'Carlos Rodríguez', email: 'carlos@empresa.com', phone: '+34 634 567 890', stage: 2, date: '2025-12-18' },
-      { id: 4, name: 'Ana Martínez', email: 'ana@empresa.com', phone: '+34 645 678 901', stage: 0, date: '2025-12-21' },
-      { id: 5, name: 'David Sánchez', email: 'david@empresa.com', phone: '+34 656 789 012', stage: 1, date: '2025-12-17' },
-      { id: 6, name: 'Laura Fernández', email: 'laura@empresa.com', phone: '+34 667 890 123', stage: 3, date: '2025-12-16' },
-      { id: 7, name: 'Pedro González', email: 'pedro@empresa.com', phone: '+34 678 901 234', stage: 2, date: '2025-12-15' },
-      { id: 8, name: 'Sofia Díaz', email: 'sofia@empresa.com', phone: '+34 689 012 345', stage: 4, date: '2025-12-14' },
-    ],
-  },
-  '2': {
-    id: 2,
-    name: 'Soporte',
-    color: 'from-green-400 to-green-600',
-    stages: ['Nuevo', 'En progreso', 'Pendiente cliente', 'Resuelto'],
-    leads: [
-      { id: 1, name: 'Ticket #001', email: 'support@empresa.com', phone: 'Normal', stage: 1, date: '2025-12-21' },
-      { id: 2, name: 'Ticket #002', email: 'support@empresa.com', phone: 'Urgente', stage: 0, date: '2025-12-22' },
-      { id: 3, name: 'Ticket #003', email: 'support@empresa.com', phone: 'Normal', stage: 2, date: '2025-12-20' },
-      { id: 4, name: 'Ticket #004', email: 'support@empresa.com', phone: 'Normal', stage: 3, date: '2025-12-19' },
-      { id: 5, name: 'Ticket #005', email: 'support@empresa.com', phone: 'Urgente', stage: 1, date: '2025-12-18' },
-    ],
-  },
-};
+
+// El pipeline y leads se obtendrán de la API real
+
 
 export default function PipelineFlowPage() {
   const params = useParams();
   const router = useRouter();
   const pipelineId = params.id as string;
-  const pipeline = pipelineData[pipelineId];
+
+  const [stages, setStages] = useState<Stage[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+  const [pipelineName, setPipelineName] = useState<string>('');
+
+  // Cargar metadata y leads
+  useEffect(() => {
+    async function fetchMetadataAndLeads() {
+      // 1. Obtener metadata (etapas y etiquetas)
+      const metaRes = await fetch('/api/config/metadata');
+      const metaJson = await metaRes.json();
+      if (metaJson.ok) {
+        setStages(metaJson.data.stages || []);
+        setTags(metaJson.data.tags || []);
+      }
+      // 2. Obtener leads del pipeline
+      const leadsRes = await fetch(`/api/pipelines/${pipelineId}/leads`);
+      const leadsJson = await leadsRes.json();
+      if (leadsJson.ok) {
+        setLeads(leadsJson.data.leads || []);
+        setPipelineName(leadsJson.data.pipelineName || '');
+      }
+    }
+    fetchMetadataAndLeads();
+  }, [pipelineId]);
 
   const [leads, setLeads] = useState<Lead[]>(pipeline?.leads || []);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
 
-  if (!pipeline) {
+
+  if (!stages.length) {
     return (
       <div className="p-8 text-center">
-        <p className="text-slate-400">Pipeline no encontrado</p>
-        <button
-          onClick={() => router.back()}
-          className="mt-4 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          Volver
-        </button>
+        <p className="text-slate-400">Cargando etapas del pipeline...</p>
       </div>
     );
   }
@@ -101,9 +104,10 @@ export default function PipelineFlowPage() {
     setSelectedLead(null);
   };
 
-  const getLeadsInStage = (stageIndex: number) => {
-    return leads.filter((lead: Lead) => lead.stage === stageIndex);
+  const getLeadsInStage = (stageId: number) => {
+    return leads.filter((lead: Lead) => lead.stage === stageId);
   };
+
 
   return (
     <div className="space-y-8 p-8">
@@ -116,7 +120,7 @@ export default function PipelineFlowPage() {
           >
             ← Volver a pipelines
           </button>
-          <h1 className="text-4xl font-bold text-white">{pipeline.name}</h1>
+          <h1 className="text-4xl font-bold text-white">{pipelineName}</h1>
           <p className="text-slate-400 mt-2">Gestiona el flujo de leads a través de las etapas</p>
         </div>
         <div className="text-right">
@@ -128,16 +132,16 @@ export default function PipelineFlowPage() {
       {/* Kanban Board */}
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-6 min-w-min">
-          {pipeline.stages.map((stage: string, stageIndex: number) => {
-            const stageLeads = getLeadsInStage(stageIndex);
+          {stages.map((stage: Stage) => {
+            const stageLeads = getLeadsInStage(stage.id);
             const stageWidth = Math.max(stageLeads.length * 100 + 20, 350);
 
             return (
-              <div key={stageIndex} className="flex-shrink-0" style={{ width: `${stageWidth}px` }}>
+              <div key={stage.id} className="flex-shrink-0" style={{ width: `${stageWidth}px` }}>
                 {/* Stage Header */}
                 <div className="rounded-t-xl bg-slate-800 border border-b-0 border-slate-700 p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-white">{stage}</h3>
+                    <h3 className="font-semibold text-white">{stage.name}</h3>
                     <span className="px-2 py-1 rounded-full bg-slate-700 text-slate-300 text-xs font-medium">
                       {stageLeads.length}
                     </span>
@@ -151,7 +155,7 @@ export default function PipelineFlowPage() {
                 {/* Stage Cards Container */}
                 <div
                   onDragOver={handleDragOver}
-                  onDrop={() => handleDrop(stageIndex)}
+                  onDrop={() => handleDrop(stage.id)}
                   className="rounded-b-xl border border-slate-700 bg-slate-900/50 backdrop-blur p-4 space-y-3 min-h-[500px]"
                 >
                   {stageLeads.length === 0 ? (
@@ -180,6 +184,18 @@ export default function PipelineFlowPage() {
                           <div className="flex items-center gap-2">
                             <Calendar className="h-3 w-3" />
                             <span>{lead.date}</span>
+                          </div>
+                          {/* Etiquetas */}
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {lead.tags?.map((tag) => (
+                              <span
+                                key={tag.id}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${tag.is_system ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}
+                                title={tag.name}
+                              >
+                                {tag.is_system ? '🔥' : '🚚'} {tag.name}
+                              </span>
+                            ))}
                           </div>
                         </div>
                         <button

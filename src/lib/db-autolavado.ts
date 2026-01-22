@@ -1,3 +1,31 @@
+// Obtiene el historial de conversaciones (chat) de un lead
+export async function getLeadConversations(lead_id: string) {
+  const sql = `
+    SELECT id, sender, message, sent_at
+    FROM lead_conversations
+    WHERE lead_id = $1
+    ORDER BY sent_at ASC;
+  `;
+  const { rows } = await queryAutolavado(sql, [lead_id]);
+  return rows;
+}
+// Obtiene el historial de actividad (timeline) de un lead
+export async function getLeadActivityLog(lead_id: string) {
+  const sql = `
+    SELECT 
+      id,
+      activity_type, -- 'ai_audit_update', 'human_update', 'note'
+      description,   -- El "reason"
+      performed_by_ai,
+      created_at,
+      metadata       -- El JSON con detalles
+    FROM public.lead_activity_log
+    WHERE lead_id = $1
+    ORDER BY created_at DESC;
+  `;
+  const { rows } = await queryAutolavado(sql, [lead_id]);
+  return rows;
+}
 // src/lib/db-autolavado.ts
 import { Pool } from "pg";
 import dns from "dns";
@@ -136,4 +164,32 @@ export async function queryAutolavado<T = any>(
 
   console.error("[Autolavado DB] Final error:", lastError);
   throw lastError;
+}
+
+// Obtiene etapas y etiquetas fusionadas (universales + tenant) para el Kanban y selects
+export async function getConfigMetadata(tenant_id: string | null) {
+  const sql = `
+    SELECT json_build_object(
+      'stages', (
+         SELECT json_agg(s ORDER BY t_order DESC, position ASC) 
+         FROM (
+            SELECT id, name, color, position, 
+                   CASE WHEN tenant_id IS NULL THEN 0 ELSE 1 END as t_order
+            FROM public.pipeline_stages 
+            WHERE (tenant_id = $1 OR tenant_id IS NULL)
+         ) s
+      ),
+      'tags', (
+         SELECT json_agg(t ORDER BY is_system DESC, name ASC)
+         FROM (
+            SELECT id, name, color, description, 
+                   CASE WHEN tenant_id IS NULL THEN true ELSE false END as is_system
+            FROM public.tags 
+            WHERE (tenant_id = $1 OR tenant_id IS NULL)
+         ) t
+      )
+    ) as config;
+  `;
+  const { rows } = await queryAutolavado(sql, [tenant_id]);
+  return rows[0]?.config;
 }

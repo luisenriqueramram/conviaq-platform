@@ -1,3 +1,49 @@
+export async function PATCH(req: Request, ctx: Ctx) {
+  try {
+    const { tenantId, user } = await requireSession();
+    const p = await Promise.resolve(ctx.params);
+    const leadId = Number(p.id);
+    if (!Number.isFinite(leadId)) {
+      return NextResponse.json({ ok: false, error: "Invalid lead id" }, { status: 400 });
+    }
+    const body = await req.json();
+    const { name, dealValue, stageId, tagIds } = body;
+
+    // Actualizar lead
+    await db.query(
+      `UPDATE leads SET name = $1, deal_value = $2, stage_id = $3, updated_at = NOW() WHERE id = $4 AND tenant_id = $5`,
+      [name, dealValue, stageId, leadId, tenantId]
+    );
+
+    // Actualizar etiquetas (taggings)
+    if (Array.isArray(tagIds)) {
+      // Eliminar etiquetas actuales
+      await db.query(`DELETE FROM taggings WHERE lead_id = $1`, [leadId]);
+      // Insertar nuevas etiquetas
+      for (const tagId of tagIds) {
+        await db.query(
+          `INSERT INTO taggings (lead_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [leadId, tagId]
+        );
+      }
+    }
+
+    // Registrar en bitácora (lead_activity_log)
+    await db.query(
+      `INSERT INTO lead_activity_log (lead_id, tenant_id, activity_type, description, performed_by_ai, metadata, created_at)
+       VALUES ($1, $2, 'human_update', 'Actualización manual desde el panel', false, $3, NOW())`,
+      [leadId, tenantId, JSON.stringify({ changes: 'Lead updated by user', user: user?.name || user?.id })]
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    if (String(error?.message) === "UNAUTHORIZED") {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    console.error("🔥 Error en PATCH /api/leads/[id]:", error);
+    return NextResponse.json({ ok: false, error: "Internal server error" }, { status: 500 });
+  }
+}
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/server/session";

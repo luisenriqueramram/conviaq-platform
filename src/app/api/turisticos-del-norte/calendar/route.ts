@@ -102,3 +102,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
   }
 }
+
+// DELETE: eliminar salidas por ruta
+export async function DELETE(req: Request) {
+  try {
+    const { tenantId } = await requireSession();
+    if (Number(tenantId) !== TENANT_ID) {
+      return NextResponse.json({ error: "ACCESS_DENIED", tenantId }, { status: 403 });
+    }
+    const body = await req.json();
+    const { route_key } = body || {};
+    if (!route_key) {
+      return NextResponse.json({ error: "MISSING_ROUTE_KEY" }, { status: 400 });
+    }
+    await db.query(
+      "DELETE FROM tours_calendar WHERE tenant_id = $1 AND route_key = $2",
+      [TENANT_ID, route_key]
+    );
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("[API] DELETE turisticos-del-norte/calendar", error);
+    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+  }
+}
