@@ -230,7 +230,9 @@ export default function PipelineFlowPage() {
               <h2 className="text-2xl font-bold text-white mb-2">{selectedLead.name}</h2>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-900/50 border border-blue-700">
                 <span className="w-2 h-2 rounded-full bg-blue-400" />
-                <span className="text-blue-300 text-sm">{pipeline.stages[selectedLead.stage]}</span>
+                <span className="text-blue-300 text-sm">
+                  {stages.find((stage) => stage.id === selectedLead.stage)?.name ?? 'Sin etapa'}
+                </span>
               </div>
             </div>
 
@@ -252,24 +254,24 @@ export default function PipelineFlowPage() {
             <div className="space-y-2 border-t border-slate-700 pt-6">
               <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Cambiar etapa</p>
               <div className="space-y-2">
-                {pipeline.stages.map((stage: string, idx: number) => (
+                {stages.map((stage) => (
                   <button
-                    key={idx}
+                    key={stage.id}
                     onClick={() => {
                       setLeads(
                         leads.map((l: Lead) =>
-                          l.id === selectedLead!.id ? { ...l, stage: idx } : l
+                          l.id === selectedLead!.id ? { ...l, stage: stage.id } : l
                         )
                       );
-                      setSelectedLead({ ...selectedLead!, stage: idx });
+                      setSelectedLead({ ...selectedLead!, stage: stage.id });
                     }}
                     className={`w-full px-3 py-2 rounded-lg text-sm transition-colors ${
-                      selectedLead!.stage === idx
+                      selectedLead!.stage === stage.id
                         ? 'bg-blue-600 text-white'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                     }`}
                   >
-                    {stage}
+                    {stage.name}
                   </button>
                 ))}
               </div>
