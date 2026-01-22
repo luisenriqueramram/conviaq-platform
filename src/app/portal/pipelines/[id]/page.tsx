@@ -67,9 +67,7 @@ export default function PipelineFlowPage() {
     fetchMetadataAndLeads();
   }, [pipelineId]);
 
-  const [leads, setLeads] = useState<Lead[]>(pipeline?.leads || []);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+  // Eliminado: duplicado de useState (leads, selectedLead, draggedLead)
 
 
   if (!stages.length) {
