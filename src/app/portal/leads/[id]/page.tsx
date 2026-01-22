@@ -5,28 +5,7 @@ import Link from "next/link";
 import { Plus, Loader2, AlertCircle, Send, Lock, Globe, Bot, User as UserIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useParams } from "next/navigation";
 
-  id: string;
-  name: string;
-  company?: string;
-  import { Plus, Loader2, AlertCircle, Send, Lock, Globe, Bot, User as UserIcon, ChevronDown, ChevronUp } from "lucide-react";
-  phone?: string;
-  dealValue?: number;
-  import type { Lead, Tag, Activity, ChatMessage, Note, Reminder } from "@/types/lead";
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [newNote, setNewNote] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
-  const [stages, setStages] = useState<any[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
-  const [selectedStage, setSelectedStage] = useState<number | undefined>(undefined);
-  const [leadName, setLeadName] = useState<string>('');
-  const [leadValue, setLeadValue] = useState<number | ''>('');
-  const [showTagDropdown, setShowTagDropdown] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [activity, setActivity] = useState<Activity[]>([]);
-  const [chat, setChat] = useState<ChatMessage[]>([]);
-  const [showMeta, setShowMeta] = useState<number | null>(null);
+// ...existing code...
 
   useEffect(() => {
     const fetchData = async () => {
