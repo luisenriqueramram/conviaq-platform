@@ -17,6 +17,13 @@ type RawLeadRow = {
   tags: Array<{ id: number; name: string; color: string | null; is_system: boolean }> | null;
 };
 
+type StageRow = {
+  id: number;
+  name: string;
+  color: string | null;
+  position: number;
+};
+
 export async function GET(_req: Request, ctx: RouteCtx) {
   try {
     const { tenantId } = await requireSession();
@@ -72,6 +79,16 @@ export async function GET(_req: Request, ctx: RouteCtx) {
       [pipelineId, tenantId]
     );
 
+    const stagesResult = await db.query<StageRow>(
+      `
+      SELECT id, name, color, position
+      FROM pipeline_stages
+      WHERE pipeline_id = $1
+      ORDER BY position ASC
+      `,
+      [pipelineId]
+    );
+
     const leads = leadsResult.rows.map((row) => ({
       id: row.id,
       name: row.name ?? row.contact_name ?? "Sin nombre",
@@ -87,6 +104,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
       data: {
         pipelineId,
         pipelineName: pipelineResult.rows[0].name,
+        stages: stagesResult.rows,
         leads,
       },
     });

@@ -2,31 +2,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowRight, Plus, Trash2, User, Phone, Mail, Calendar } from 'lucide-react';
+import { Plus, Trash2, Phone, Mail, Calendar } from 'lucide-react';
 
-
-type Tag = {
-  id: number;
-  name: string;
-  color: string;
-  is_system: boolean;
-};
 
 type Lead = {
   id: number;
   name: string;
   email: string;
   phone: string;
-  stage: number;
-  date: string;
-  tags?: Tag[];
+  stage: number | null;
+  date: string | null;
+  tags?: Array<{ id: number; name: string; color: string | null; is_system: boolean }>;
 };
 
 
 type Stage = {
   id: number;
   name: string;
-  color: string;
+  color: string | null;
   position: number;
 };
 
@@ -40,40 +33,70 @@ export default function PipelineFlowPage() {
   const pipelineId = params.id as string;
 
   const [stages, setStages] = useState<Stage[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
   const [pipelineName, setPipelineName] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Cargar metadata y leads
   useEffect(() => {
-    async function fetchMetadataAndLeads() {
-      // 1. Obtener metadata (etapas y etiquetas)
-      const metaRes = await fetch('/api/config/metadata');
-      const metaJson = await metaRes.json();
-      if (metaJson.ok) {
-        setStages(metaJson.data.stages || []);
-        setTags(metaJson.data.tags || []);
+    if (!pipelineId) return;
+
+    const fetchPipeline = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(`/api/pipelines/${pipelineId}/leads`);
+        if (!res.ok) throw new Error('No pudimos cargar el pipeline');
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || 'Ocurrió un error al cargar el pipeline');
+
+        setStages(json.data.stages || []);
+        setLeads(json.data.leads || []);
+        setPipelineName(json.data.pipelineName || '');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error desconocido');
+      } finally {
+        setLoading(false);
       }
-      // 2. Obtener leads del pipeline
-      const leadsRes = await fetch(`/api/pipelines/${pipelineId}/leads`);
-      const leadsJson = await leadsRes.json();
-      if (leadsJson.ok) {
-        setLeads(leadsJson.data.leads || []);
-        setPipelineName(leadsJson.data.pipelineName || '');
-      }
-    }
-    fetchMetadataAndLeads();
+    };
+
+    fetchPipeline();
   }, [pipelineId]);
 
-  // Eliminado: duplicado de useState (leads, selectedLead, draggedLead)
+  if (!pipelineId) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-slate-400">Pipeline inválido</p>
+      </div>
+    );
+  }
 
+  if (loading) {
+    return (
+      <div className="p-12 flex flex-col items-center gap-4 text-slate-400">
+        <div className="h-12 w-12 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <p>Cargando pipeline...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 max-w-xl mx-auto">
+        <div className="rounded-lg border border-red-500/30 bg-red-900/20 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   if (!stages.length) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-slate-400">Cargando etapas del pipeline...</p>
+      <div className="p-8 text-center space-y-2">
+        <p className="text-white text-lg font-semibold">{pipelineName || 'Pipeline sin nombre'}</p>
+        <p className="text-slate-400">Este pipeline todavía no tiene etapas configuradas.</p>
       </div>
     );
   }
