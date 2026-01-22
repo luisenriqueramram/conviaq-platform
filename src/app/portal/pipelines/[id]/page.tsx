@@ -172,7 +172,8 @@ export default function PipelineFlowPage() {
           <div className="flex min-w-min gap-6">
             {stages.map((stage) => {
               const stageLeads = getLeadsInStage(stage.id);
-              const stageWidth = Math.max(stageLeads.length * 110 + 24, 340);
+              const dynamicWidth = stageLeads.length * 90 + 260;
+              const stageWidth = Math.max(340, Math.min(420, dynamicWidth)); // clamp columnas para evitar saltos extremos
               return (
                 <div key={stage.id} className="flex-shrink-0" style={{ width: `${stageWidth}px` }}>
                   <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900/90 via-slate-900/60 to-slate-900/90 p-5 shadow-xl">
