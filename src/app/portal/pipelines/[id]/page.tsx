@@ -5,30 +5,30 @@ import { useParams, useRouter } from 'next/navigation';
 import { Plus, Trash2, Phone, Mail, Calendar } from 'lucide-react';
 
 
-type Lead = {
-  id: number;
-  name: string;
+          {stages.map((stage: Stage) => {
+            const stageLeads = getLeadsInStage(stage.id);
+              const stageWidth = Math.max(stageLeads.length * 110 + 24, 340);
   email: string;
   phone: string;
-  stage: number | null;
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900/90 via-slate-900/60 to-slate-900/90 p-5 shadow-xl">
   date: string | null;
   tags?: Array<{ id: number; name: string; color: string | null; is_system: boolean }>;
-};
-
+                      <p className="text-[11px] uppercase tracking-[0.4em] text-slate-500">Etapa</p>
+                      <h3 className="mt-2 text-lg font-semibold text-white">{stage.name}</h3>
 
 type Stage = {
   id: number;
   name: string;
   color: string | null;
-  position: number;
-};
+                  <button className="mt-4 w-full rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-white/40">
+                    <Plus className="mr-2 inline h-4 w-4" /> Añadir lead
 
 
 // El pipeline y leads se obtendrán de la API real
 
 
 export default function PipelineFlowPage() {
-  const params = useParams();
+                  className="mt-4 rounded-2xl border border-white/10 bg-slate-950/70 p-4 backdrop-blur-2xl shadow-inner space-y-3 min-h-[420px]"
   const router = useRouter();
   const pipelineId = params.id as string;
 
@@ -41,31 +41,62 @@ export default function PipelineFlowPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!pipelineId) return;
+                        className="group rounded-2xl border border-white/10 bg-gradient-to-br from-[#0b1120] via-[#0f172a] to-[#0b1120] p-5 shadow-[0_20px_50px_rgba(5,8,20,0.55)] transition hover:-translate-y-1 hover:border-blue-500/60 cursor-pointer"
 
-    const fetchPipeline = async () => {
-      try {
-        setLoading(true);
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Oportunidad</p>
+                            <h4 className="mt-1 text-lg font-semibold leading-tight text-white break-words">{lead.name}</h4>
+                          </div>
+                          <span className="text-xs text-slate-400 whitespace-nowrap">
+                            {lead.date ? new Date(lead.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }) : 'Sin fecha'}
+                          </span>
         setError(null);
-        const res = await fetch(`/api/pipelines/${pipelineId}/leads`);
-        if (!res.ok) throw new Error('No pudimos cargar el pipeline');
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.error || 'Ocurrió un error al cargar el pipeline');
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-200">
+                          <div className="space-y-1">
+                            <p className="text-[11px] uppercase tracking-widest text-slate-500">Correo</p>
+                            <div className="flex items-center gap-2 text-[13px] text-white/90">
+                              <Mail className="h-3.5 w-3.5 text-white/60" />
+                              <span className="break-words leading-tight">{lead.email || 'Sin correo'}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[11px] uppercase tracking-widest text-slate-500">Teléfono</p>
+                            <div className="flex items-center gap-2 text-[13px] text-white/90">
+                              <Phone className="h-3.5 w-3.5 text-white/60" />
+                              <span className="leading-tight">{lead.phone || 'Sin teléfono'}</span>
+                            </div>
+                          </div>
+                        </div>
 
-        setStages(json.data.stages || []);
-        setLeads(json.data.leads || []);
-        setPipelineName(json.data.pipelineName || '');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
+                        <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+                          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-slate-300">
+                            <Calendar className="h-3 w-3" /> {stage.name}
+                          </div>
+                          {lead.tags && lead.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {lead.tags.slice(0, 2).map((tag) => (
+                                <span
+                                  key={tag.id}
+                                  className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[11px] text-white/80"
+                                >
+                                  {tag.name}
+                                </span>
+                              ))}
+                              {lead.tags.length > 2 && (
+                                <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[11px] text-white/60">
+                                  +{lead.tags.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
     };
 
     fetchPipeline();
   }, [pipelineId]);
 
-  if (!pipelineId) {
+                          className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 opacity-0 transition group-hover:opacity-100 hover:border-red-500/40 hover:text-red-200"
     return (
       <div className="p-8 text-center">
         <p className="text-slate-400">Pipeline inválido</p>
