@@ -130,57 +130,86 @@ export default function PipelineFlowPage() {
   };
 
 
-  return (
-    <div className="space-y-8 p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <button
-            onClick={() => router.back()}
-            className="text-blue-400 hover:text-blue-300 text-sm mb-2 flex items-center gap-1"
-          >
-            ← Volver a pipelines
-          </button>
-          <h1 className="text-4xl font-bold text-white">{pipelineName}</h1>
-          <p className="text-slate-400 mt-2">Gestiona el flujo de leads a través de las etapas</p>
-        </div>
-        <div className="text-right">
-          <p className="text-3xl font-bold text-white">{leads.length}</p>
-          <p className="text-slate-400">Total de leads</p>
-        </div>
-      </div>
+  const totalLeads = leads.length;
+  const hottestStage = stages.reduce<{ id: number | null; name: string; count: number }>(
+    (acc, stage) => {
+      const count = getLeadsInStage(stage.id).length;
+      if (count > acc.count) return { id: stage.id, name: stage.name, count };
+      return acc;
+    },
+    { id: null, name: 'Sin actividad', count: 0 }
+  );
+  const lastMovement = leads.reduce<string | null>((latest, lead) => {
+    if (!lead.date) return latest;
+    const iso = new Date(lead.date).toISOString();
+    if (!latest || iso > latest) return iso;
+    return latest;
+  }, null);
 
-      {/* Kanban Board */}
-      <div className="overflow-x-auto pb-4">
-        <div className="flex gap-6 min-w-min">
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
+      <div className="mx-auto max-w-[1500px] space-y-10 px-8 py-10">
+        {/* Header */}
+        <div className="rounded-3xl border border-white/5 bg-white/5 backdrop-blur-xl p-8 shadow-[0_30px_120px_rgba(14,19,48,0.45)]">
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Pipeline activo</p>
+              <h1 className="mt-3 text-4xl font-semibold text-white drop-shadow-sm">{pipelineName || 'Pipeline sin nombre'}</h1>
+              <p className="mt-2 text-sm text-slate-400">Controla cada oportunidad con la visibilidad completa de tu funnel.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-center">
+                <p className="text-xs uppercase tracking-widest text-slate-400">Leads</p>
+                <p className="mt-2 text-3xl font-bold text-white">{totalLeads}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-center">
+                <p className="text-xs uppercase tracking-widest text-slate-400">Etapas</p>
+                <p className="mt-2 text-3xl font-bold text-white">{stages.length}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-center">
+                <p className="text-xs uppercase tracking-widest text-slate-400">Más activo</p>
+                <p className="mt-2 text-sm font-semibold text-white">{hottestStage.name}</p>
+                <p className="text-xs text-slate-400">{hottestStage.count} lead(s)</p>
+              </div>
+            </div>
+          </div>
+          {lastMovement && (
+            <div className="mt-6 text-xs text-slate-400">
+              Última actualización: {new Date(lastMovement).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
+            </div>
+          )}
+        </div>
+
+        {/* Kanban Board */}
+        <div className="overflow-x-auto pb-4">
+          <div className="flex gap-6 min-w-min">
           {stages.map((stage: Stage) => {
             const stageLeads = getLeadsInStage(stage.id);
-            const stageWidth = Math.max(stageLeads.length * 100 + 20, 350);
-
+              const stageWidth = Math.max(stageLeads.length * 120 + 32, 360);
             return (
               <div key={stage.id} className="flex-shrink-0" style={{ width: `${stageWidth}px` }}>
-                {/* Stage Header */}
-                <div className="rounded-t-xl bg-slate-800 border border-b-0 border-slate-700 p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-white">{stage.name}</h3>
-                    <span className="px-2 py-1 rounded-full bg-slate-700 text-slate-300 text-xs font-medium">
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-900/70 p-5 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-slate-400">Etapa</p>
+                      <h3 className="mt-1 font-semibold text-white">{stage.name}</h3>
+                    </div>
+                    <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-slate-200">
                       {stageLeads.length}
                     </span>
                   </div>
-                  <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm transition-colors">
-                    <Plus className="h-4 w-4" />
-                    Agregar
+                  <button className="mt-4 w-full rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:border-white/30">
+                    <Plus className="mr-2 inline h-4 w-4" /> Añadir lead
                   </button>
                 </div>
 
-                {/* Stage Cards Container */}
                 <div
                   onDragOver={handleDragOver}
                   onDrop={() => handleDrop(stage.id)}
-                  className="rounded-b-xl border border-slate-700 bg-slate-900/50 backdrop-blur p-4 space-y-3 min-h-[500px]"
+                  className="mt-4 rounded-2xl border border-white/10 bg-slate-950/60 p-4 backdrop-blur-lg shadow-inner space-y-3 min-h-[420px]"
                 >
                   {stageLeads.length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+                    <div className="h-full rounded-xl border border-dashed border-white/10 bg-white/5 p-6 text-center text-sm text-slate-500">
                       Arrastra leads aquí
                     </div>
                   ) : (
@@ -190,33 +219,24 @@ export default function PipelineFlowPage() {
                         draggable
                         onDragStart={() => handleDragStart(lead)}
                         onClick={() => setSelectedLead(lead)}
-                        className="p-3 rounded-lg bg-slate-800 border border-slate-700 hover:border-blue-500 cursor-move transition-colors group"
+                        className="group rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-900/60 p-4 shadow-[0_15px_40px_rgba(5,9,22,0.45)] transition hover:-translate-y-1 hover:border-blue-500/60 cursor-pointer"
                       >
-                        <h4 className="font-semibold text-white text-sm mb-1">{lead.name}</h4>
-                        <div className="space-y-1 text-xs text-slate-400">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-base font-semibold text-white">{lead.name}</h4>
+                          <span className="text-xs text-slate-500">{lead.date ? new Date(lead.date).toLocaleDateString('es-MX') : 'Sin fecha'}</span>
+                        </div>
+                        <div className="mt-3 space-y-1 text-xs text-slate-400">
                           <div className="flex items-center gap-2">
                             <Mail className="h-3 w-3" />
-                            <span className="truncate">{lead.email}</span>
+                            <span className="truncate">{lead.email || 'Sin correo'}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Phone className="h-3 w-3" />
-                            <span>{lead.phone}</span>
+                            <span>{lead.phone || 'Sin teléfono'}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Calendar className="h-3 w-3" />
-                            <span>{lead.date}</span>
-                          </div>
-                          {/* Etiquetas */}
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {lead.tags?.map((tag) => (
-                              <span
-                                key={tag.id}
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${tag.is_system ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}
-                                title={tag.name}
-                              >
-                                {tag.is_system ? '🔥' : '🚚'} {tag.name}
-                              </span>
-                            ))}
+                            <span>{stage.name}</span>
                           </div>
                         </div>
                         <button
@@ -224,9 +244,9 @@ export default function PipelineFlowPage() {
                             e.stopPropagation();
                             handleDeleteLead(lead.id);
                           }}
-                          className="mt-2 w-full px-2 py-1 rounded bg-slate-700 hover:bg-red-900 text-slate-400 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-all"
+                          className="mt-3 w-full rounded-xl border border-transparent bg-white/5 px-3 py-1.5 text-xs text-slate-300 opacity-0 transition group-hover:opacity-100 hover:border-red-500/40 hover:text-red-300"
                         >
-                          <Trash2 className="h-3 w-3 inline mr-1" /> Eliminar
+                          <Trash2 className="mr-1 inline h-3 w-3" /> Eliminar
                         </button>
                       </div>
                     ))
@@ -235,12 +255,12 @@ export default function PipelineFlowPage() {
               </div>
             );
           })}
+          </div>
         </div>
-      </div>
 
       {/* Side Panel - Lead Details */}
       {selectedLead && (
-        <div className="fixed right-0 top-0 h-screen w-96 bg-slate-900 border-l border-slate-700 shadow-2xl p-6 overflow-y-auto z-50">
+        <div className="fixed right-0 top-0 z-50 h-screen w-96 border-l border-white/10 bg-slate-950/95 p-6 shadow-[0_0_60px_rgba(0,0,0,0.7)] backdrop-blur-2xl">
           <button
             onClick={() => setSelectedLead(null)}
             className="absolute top-4 right-4 text-slate-400 hover:text-slate-200"
@@ -250,12 +270,11 @@ export default function PipelineFlowPage() {
 
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">{selectedLead.name}</h2>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-900/50 border border-blue-700">
-                <span className="w-2 h-2 rounded-full bg-blue-400" />
-                <span className="text-blue-300 text-sm">
-                  {stages.find((stage) => stage.id === selectedLead.stage)?.name ?? 'Sin etapa'}
-                </span>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Lead seleccionado</p>
+              <h2 className="mt-3 text-2xl font-semibold text-white">{selectedLead.name}</h2>
+              <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-200">
+                <span className="h-2 w-2 rounded-full bg-blue-400" />
+                {stages.find((stage) => stage.id === selectedLead.stage)?.name ?? 'Sin etapa'}
               </div>
             </div>
 
@@ -288,7 +307,7 @@ export default function PipelineFlowPage() {
                       );
                       setSelectedLead({ ...selectedLead!, stage: stage.id });
                     }}
-                    className={`w-full px-3 py-2 rounded-lg text-sm transition-colors ${
+                    className={`w-full px-3 py-2 rounded-lg text-sm transition ${
                       selectedLead!.stage === stage.id
                         ? 'bg-blue-600 text-white'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -302,7 +321,7 @@ export default function PipelineFlowPage() {
 
             <button
               onClick={() => handleDeleteLead(selectedLead.id)}
-              className="w-full px-4 py-2 rounded-lg bg-red-900/50 hover:bg-red-900 text-red-400 border border-red-700 transition-colors mt-6"
+              className="mt-6 w-full rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-200 transition hover:border-red-500/60 hover:bg-red-500/20"
             >
               <Trash2 className="h-4 w-4 inline mr-2" />
               Eliminar lead
