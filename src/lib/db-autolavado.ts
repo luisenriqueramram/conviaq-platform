@@ -1,3 +1,7 @@
+import { query as queryCRM } from "@/lib/db";
+import { Pool } from "pg";
+import dns from "dns";
+
 // Obtiene el historial de conversaciones (chat) de un lead
 export async function getLeadConversations(lead_id: string) {
   const sql = `
@@ -6,7 +10,7 @@ export async function getLeadConversations(lead_id: string) {
     WHERE lead_id = $1
     ORDER BY sent_at ASC;
   `;
-  const { rows } = await queryAutolavado(sql, [lead_id]);
+  const { rows } = await queryCRM(sql, [lead_id]);
   return rows;
 }
 // Obtiene el historial de actividad (timeline) de un lead
@@ -23,12 +27,9 @@ export async function getLeadActivityLog(lead_id: string) {
     WHERE lead_id = $1
     ORDER BY created_at DESC;
   `;
-  const { rows } = await queryAutolavado(sql, [lead_id]);
+  const { rows } = await queryCRM(sql, [lead_id]);
   return rows;
 }
-// src/lib/db-autolavado.ts
-import { Pool } from "pg";
-import dns from "dns";
 
 // Configurar DNS para preferir IPv4
 dns.setDefaultResultOrder('ipv4first');
@@ -190,6 +191,6 @@ export async function getConfigMetadata(tenant_id: string | null) {
       )
     ) as config;
   `;
-  const { rows } = await queryAutolavado(sql, [tenant_id]);
+  const { rows } = await queryCRM(sql, [tenant_id]);
   return rows[0]?.config;
 }
