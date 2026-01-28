@@ -612,6 +612,30 @@ export default function PipelineFlowPage() {
           </div>
         )}
       </div>
+
+      <style jsx global>{`
+        /* Scrollbars sutiles para vista de pipeline */
+        .stealth-scroll {
+          scrollbar-color: rgba(99, 102, 241, 0.6) transparent;
+          scrollbar-width: thin;
+        }
+        .stealth-scroll::-webkit-scrollbar {
+          height: 10px;
+          width: 10px;
+        }
+        .stealth-scroll::-webkit-scrollbar-track {
+          background: transparent;
+          border-radius: 9999px;
+        }
+        .stealth-scroll::-webkit-scrollbar-thumb {
+          background: linear-gradient(120deg, rgba(99, 102, 241, 0.9), rgba(59, 130, 246, 0.9));
+          border-radius: 9999px;
+          border: 2px solid rgba(5, 6, 8, 0.9);
+        }
+        .stealth-scroll::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(120deg, rgba(124, 58, 237, 1), rgba(37, 99, 235, 1));
+        }
+      `}</style>
     </div>
   );
 }
