@@ -141,15 +141,27 @@ export async function GET(_req: Request, ctx: RouteCtx) {
       let replied = false;
       let aiForceOff = false;
       if (conversation) {
+        // Si el último mensaje no es del contacto, consideramos respondido
+        const lastMsgRes = await db.query(
+          `SELECT sender_type, sent_at FROM messages WHERE tenant_id = $1 AND conversation_id = $2 ORDER BY sent_at DESC LIMIT 1`,
+          [tenantId, conversation.id]
+        );
+        if (lastMsgRes.rows.length) {
+          const lastSender = String(lastMsgRes.rows[0].sender_type || "").toLowerCase();
+          if (lastSender !== "contact") {
+            replied = true;
+          }
+        }
+
         const lastContactRes = await db.query(
           `SELECT sent_at FROM messages WHERE tenant_id = $1 AND conversation_id = $2 AND sender_type = 'contact' ORDER BY sent_at DESC LIMIT 1`,
           [tenantId, conversation.id]
         );
         lastContactMessageAt = lastContactRes.rows.length ? lastContactRes.rows[0].sent_at?.toISOString() ?? null : null;
 
-        if (lastContactMessageAt) {
+        if (lastContactMessageAt && !replied) {
           const agentAfter = await db.query(
-            `SELECT 1 FROM messages WHERE tenant_id = $1 AND conversation_id = $2 AND sender_type = 'agent' AND sent_at > $3 LIMIT 1`,
+            `SELECT 1 FROM messages WHERE tenant_id = $1 AND conversation_id = $2 AND sender_type IN ('agent','system','ai','assistant','human') AND sent_at > $3 LIMIT 1`,
             [tenantId, conversation.id, lastContactMessageAt]
           );
           replied = agentAfter.rows.length > 0;
