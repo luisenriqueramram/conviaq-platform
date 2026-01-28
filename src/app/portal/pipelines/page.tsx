@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 type PipelineSummary = {
   id: number;
   name: string;
+  tenant_id?: number | null;
+  is_default?: boolean;
 };
 
 export default function PipelinesPage() {
@@ -29,7 +31,8 @@ export default function PipelinesPage() {
           setError('Aún no tienes pipelines configurados. Crea uno desde el panel de administración.');
           return;
         }
-        const pipelineId = String(items[0].id);
+        const tenantFirst = items.find((p) => p.tenant_id != null) ?? items[0];
+        const pipelineId = String(tenantFirst.id);
         router.replace(`/portal/pipelines/${pipelineId}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error desconocido');

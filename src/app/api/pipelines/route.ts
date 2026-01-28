@@ -28,10 +28,10 @@ export async function GET() {
     // 1) Pipelines del tenant y universales
     const pipelinesResult = await db.query(
       `
-      SELECT id, name, kind, is_default, created_at, stage_order
+      SELECT id, tenant_id, name, kind, is_default, created_at, stage_order
       FROM pipelines
       WHERE tenant_id = $1 OR tenant_id IS NULL
-      ORDER BY is_default DESC, created_at ASC
+      ORDER BY CASE WHEN tenant_id = $1 THEN 0 ELSE 1 END, is_default DESC, created_at ASC
       `,
       [tenantId]
     );
