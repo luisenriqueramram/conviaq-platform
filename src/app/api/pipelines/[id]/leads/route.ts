@@ -155,6 +155,15 @@ export async function GET(_req: Request, ctx: RouteCtx) {
           replied = agentAfter.rows.length > 0;
         }
 
+        // Fallback: si no vimos mensaje del agente después del último del contacto,
+        // consideramos respondido si el estado de la conversación no está "open"/"pending".
+        if (!replied && conversation.status) {
+          const status = String(conversation.status).toLowerCase();
+          if (status !== "open" && status !== "pending") {
+            replied = true;
+          }
+        }
+
         const runtime = await db.query(`SELECT ai_force_off FROM conversation_runtime_state WHERE tenant_id = $1 AND conversation_id = $2 LIMIT 1`, [tenantId, conversation.id]);
         aiForceOff = runtime.rows.length ? Boolean(runtime.rows[0].ai_force_off) : false;
       }
