@@ -59,6 +59,15 @@ body {
   border-radius: 3px;
   border: 2px solid #030303;
 }
+
+.stealth-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.stealth-scroll::-webkit-scrollbar {
+  display: none;
+}
 /* ============================= */
 /*  GLASS PANEL + SPOTLIGHT      */
 /* ============================= */

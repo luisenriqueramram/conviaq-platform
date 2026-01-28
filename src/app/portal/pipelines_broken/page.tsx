@@ -24,11 +24,12 @@ export default function PipelinesPage() {
         const json = await res.json();
         if (!json.ok) throw new Error(json.error || 'Respuesta inválida del servidor');
 
-        const items: PipelineSummary[] = json.data?.items ?? [];
+        const items = json.data?.items ?? [];
         if (items.length === 0) {
           setError('Aún no tienes pipelines configurados. Crea uno desde el panel de administración.');
           return;
         }
+        // Asegurarse que el id es string
         const pipelineId = String(items[0].id);
         router.replace(`/portal/pipelines/${pipelineId}`);
       } catch (err) {

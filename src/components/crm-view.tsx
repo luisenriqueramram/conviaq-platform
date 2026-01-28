@@ -187,10 +187,11 @@ export function CRMView() {
           throw new Error("No se pudo cargar el pipeline")
         }
         const data = await res.json()
-        const list = (data?.pipelines ?? []) as Pipeline[]
+        // API returns: { ok: true, data: { count, items: [...] } }
+        const list = (data?.data?.items ?? data?.pipelines ?? data?.items ?? []) as Pipeline[]
         setPipelines(list)
         if (list.length > 0) {
-          setCurrentPipelineId(list[0].id)
+          setCurrentPipelineId(String(list[0].id))
         }
       } catch (err) {
         console.error(err)

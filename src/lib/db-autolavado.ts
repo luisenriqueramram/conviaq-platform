@@ -172,13 +172,14 @@ export async function getConfigMetadata(tenant_id: number | null) {
   const sql = `
     SELECT json_build_object(
       'stages', (
-         SELECT json_agg(s ORDER BY t_order DESC, position ASC) 
-         FROM (
-            SELECT id, name, color, position, 
-                   CASE WHEN tenant_id IS NULL THEN 0 ELSE 1 END as t_order
-        FROM public.pipeline_stages 
-        WHERE (tenant_id = $1::bigint OR tenant_id IS NULL)
-         ) s
+      SELECT json_agg(s ORDER BY t_order DESC, position ASC) 
+      FROM (
+        SELECT ps.id, ps.name, ps.color, ps.position,
+             CASE WHEN p.tenant_id IS NULL THEN 0 ELSE 1 END AS t_order
+        FROM public.pipeline_stages ps
+        JOIN public.pipelines p ON p.id = ps.pipeline_id
+        WHERE (p.tenant_id = $1::bigint OR p.tenant_id IS NULL)
+      ) s
       ),
       'tags', (
          SELECT json_agg(t ORDER BY is_system DESC, name ASC)

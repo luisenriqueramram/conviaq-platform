@@ -50,5 +50,6 @@ export interface Lead {
   stageName?: string;
   pipelineName?: string;
   summaryText?: string;
+  description?: string; // Resumen ejecutivo IA
   tags?: Tag[];
 }

@@ -178,8 +178,8 @@ export async function GET(req: Request) {
       1: ['/portal', '/portal/conversations', '/portal/channels/whatsapp', '/portal/custom-screens', '/portal/settings'],
       2: ['/portal', '/portal/conversations', '/portal/channels/whatsapp', '/portal/custom-screens', '/portal/settings', '/portal/bot-config'],
       3: ['/portal', '/portal/conversations', '/portal/channels/whatsapp', '/portal/custom-screens', '/portal/settings', '/portal/bot-config', '/portal/calendar'],
-      4: ['/portal', '/portal/conversations', '/portal/pipelines', '/portal/calendar', '/portal/reminders', '/portal/metrics', '/portal/settings', '/portal/channels/whatsapp', '/portal/custom-screens', '/portal/bot-config'],
-      10: ['/portal', '/portal/leads', '/portal/conversations', '/portal/pipelines', '/portal/calendar', '/portal/reminders', '/portal/metrics', '/portal/settings', '/portal/channels/whatsapp', '/portal/custom-screens', '/portal/bot-config'],
+      4: ['/portal', '/portal/conversations', '/portal/pipelines', '/portal/calendar', '/portal/settings', '/portal/channels/whatsapp', '/portal/custom-screens', '/portal/bot-config'],
+      10: ['/portal', '/portal/leads', '/portal/conversations', '/portal/pipelines', '/portal/calendar', '/portal/settings', '/portal/channels/whatsapp', '/portal/custom-screens', '/portal/bot-config'],
     };
 
     const allowed = allowedByPlan[planId] || allowedByPlan[1];
@@ -190,8 +190,6 @@ export async function GET(req: Request) {
       { label: "Conversaciones", href: "/portal/conversations", icon: "💬" },
       { label: "Pipeline", href: "/portal/pipelines", icon: "🔗" },
       { label: "Calendario", href: "/portal/calendar", icon: "📅" },
-      { label: "Recordatorios", href: "/portal/reminders", icon: "🔔" },
-      { label: "Métricas", href: "/portal/metrics", icon: "📊" },
       { label: "Configuración", href: "/portal/settings", icon: "⚙️" },
       { label: "Pantallas Personalizadas", href: "/portal/custom-screens", icon: "✨" },
       { label: "Configuración de Bot", href: "/portal/bot-config", icon: "🤖" },

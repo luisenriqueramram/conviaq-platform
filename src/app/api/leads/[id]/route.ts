@@ -76,6 +76,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         l.phone,
         l.deal_value,
         l.currency,
+        l.description,
         l.summary_text,
         l.created_at,
         l.updated_at,
@@ -143,6 +144,15 @@ export async function GET(_req: Request, ctx: Ctx) {
       stageName: leadRow.stage_name,
       stageColor: leadRow.stage_color,
       summaryText: leadRow.summary_text,
+      summary: leadRow.summary_text,
+      description: leadRow.description ?? "",
+      // conversation info
+      conversationId: null,
+      conversationStatus: null,
+      lastContactMessageAt: null,
+      replied: false,
+      aiRuntime: null,
+      lastAiAuditNote: null,
       createdAt: leadRow.created_at,
       updatedAt: leadRow.updated_at,
       notes: notesResult.rows.map((x: any) => ({
@@ -160,6 +170,36 @@ export async function GET(_req: Request, ctx: Ctx) {
         createdAt: x.created_at as string,
       })),
     };
+
+    // attach conversation + runtime + last ai note
+    if (leadRow.contact_id) {
+      const convRes = await db.query(
+        `SELECT id, status, last_message_at FROM conversations WHERE tenant_id = $1 AND contact_id = $2 ORDER BY last_message_at DESC LIMIT 1`,
+        [tenantId, leadRow.contact_id]
+      );
+      const conv = convRes.rows[0];
+      if (conv) {
+        payload.conversationId = conv.id;
+        payload.conversationStatus = conv.status;
+        const lastContactRes = await db.query(
+          `SELECT sent_at FROM messages WHERE tenant_id = $1 AND conversation_id = $2 AND sender_type='contact' ORDER BY sent_at DESC LIMIT 1`,
+          [tenantId, conv.id]
+        );
+        payload.lastContactMessageAt = lastContactRes.rows.length ? lastContactRes.rows[0].sent_at : null;
+        if (payload.lastContactMessageAt) {
+          const agentAfter = await db.query(
+            `SELECT 1 FROM messages WHERE tenant_id = $1 AND conversation_id = $2 AND sender_type='agent' AND sent_at > $3 LIMIT 1`,
+            [tenantId, conv.id, payload.lastContactMessageAt]
+          );
+          payload.replied = agentAfter.rows.length > 0;
+        }
+        const runtimeRes = await db.query(`SELECT ai_force_off, ai_disabled_until, ai_disabled_reason FROM conversation_runtime_state WHERE tenant_id = $1 AND conversation_id = $2 LIMIT 1`, [tenantId, conv.id]);
+        payload.aiRuntime = runtimeRes.rows.length ? runtimeRes.rows[0] : null;
+      }
+    }
+
+    const aiNoteRes = await db.query(`SELECT description FROM lead_activity_log WHERE lead_id = $1 AND activity_type = 'ai_audit_update' ORDER BY created_at DESC LIMIT 1`, [leadId]);
+    payload.lastAiAuditNote = aiNoteRes.rows.length ? aiNoteRes.rows[0].description : null;
 
     return NextResponse.json({ ok: true, data: payload });
   } catch (error: any) {

@@ -215,13 +215,11 @@ function ConversationsPageContent() {
   // Auto-select conversation from URL param ?cid=...
   useEffect(() => {
     const cid = searchParams.get('cid');
-    if (cid && conversations.length > 0) {
-      const cidNum = Number(cid);
-      if (!isNaN(cidNum) && conversations.some(c => Number(c.id) === cidNum)) {
-        setSelectedConversationId(cidNum);
-      }
+    const cidNum = cid ? Number(cid) : NaN;
+    if (!isNaN(cidNum)) {
+      setSelectedConversationId(cidNum);
     }
-  }, [searchParams, conversations]);
+  }, [searchParams]);
 
   // 2) Cargar statuses (filtro)
   useEffect(() => {

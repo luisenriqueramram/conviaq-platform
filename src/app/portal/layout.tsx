@@ -9,8 +9,6 @@ import {
   Users,
   MessagesSquare,
   CalendarDays,
-  Bell,
-  LineChart,
   Bot,
   Settings,
   Home,
@@ -32,8 +30,6 @@ const navItems = [
   { href: "/portal/conversations", label: "Conversaciones", icon: MessagesSquare },
   { href: "/portal/pipelines", label: "Pipeline de Ventas", icon: GitBranch },
   { href: "/portal/calendar", label: "Calendario", icon: CalendarDays },
-  { href: "/portal/reminders", label: "Seguimientos", icon: Bell },
-  { href: "/portal/metrics", label: "Analítica", icon: LineChart },
 ];
 
 const secondaryItems = [
@@ -600,9 +596,6 @@ useEffect(() => {
                 </div>
 
                 <div className="flex items-center gap-4 border-l border-border pl-5">
-                  <button className="relative text-zinc-400 hover:text-white transition" type="button">
-                    <Bell className="h-5 w-5" />
-                  </button>
                   <Link href="/portal/settings" className="text-zinc-400 hover:text-white transition">
                     <Settings className="h-5 w-5" />
                   </Link>

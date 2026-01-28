@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Bot, ChevronDown, ChevronUp, Globe, Loader2, Lock, User as UserIcon } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useParams } from "next/navigation";
 import type { Activity, ChatMessage, Lead, Note, Reminder, Tag } from "@/types/lead";
 
@@ -24,6 +25,7 @@ const LeadDetailPage = () => {
   const [leadValue, setLeadValue] = useState<number | "">("");
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [showMeta, setShowMeta] = useState<number | null>(null);
+  const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
@@ -151,10 +153,23 @@ const LeadDetailPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Compact summary + actions */}
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/5 pb-6">
         <div>
           <div className="text-xs opacity-60">Lead #{lead.id}</div>
           <h1 className="text-2xl font-semibold text-white">{lead.name}</h1>
+          {lead.description && (
+            <div className="mt-2 text-zinc-300 text-base leading-snug max-w-xl">
+                <motion.span
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.28 }}
+                  className="line-clamp-2 block"
+                >
+                  {lead.description}
+                </motion.span>
+              </div>
+          )}
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             {lead.company && <span className="rounded-full bg-neutral-800 px-2 py-1">{lead.company}</span>}
             {lead.stageName && <span className="rounded-full bg-neutral-800 px-2 py-1">Estado: {lead.stageName}</span>}
@@ -163,14 +178,27 @@ const LeadDetailPage = () => {
             )}
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <motion.button
+            className="rounded-md border border-neutral-700 px-3 py-1.5 hover:bg-neutral-800 text-sm"
+            onClick={() => setShowModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+          >
+            Mostrar más
+          </motion.button>
 
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Link href={`/portal/leads/${leadId}/conversations`} className="rounded-md border border-neutral-700 px-3 py-1.5 hover:bg-neutral-800">
-            Ver conversaciones
+          <Link
+            href={`/portal/leads/${leadId}/edit`}
+            className="rounded-md border border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Editar
           </Link>
         </div>
       </div>
 
+      {/* Main layout (kept concise) */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
           <div className="rounded-lg border border-white/10 bg-zinc-900/40 p-4 space-y-4">
@@ -396,4 +424,105 @@ const LeadDetailPage = () => {
 };
 
 export default LeadDetailPage;
+
+// Modal styles are inline here — we render full detail modal when requested
+function LeadDetailModal({ lead, chat, activity, notes, reminders, onClose }: any) {
+  if (!lead) return null;
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        <motion.div
+          className="absolute inset-0 bg-black/60"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.6 }}
+          exit={{ opacity: 0 }}
+        />
+        <motion.div
+          className="relative max-h-[90vh] w-[90vw] max-w-4xl overflow-y-auto rounded-lg bg-zinc-900/90 border border-white/10 p-6"
+          initial={{ scale: 0.96, y: 12, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          exit={{ scale: 0.98, y: 8, opacity: 0 }}
+          transition={{ duration: 0.22, ease: 'circOut' }}
+        >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xs opacity-60">Lead #{lead.id}</div>
+            <h2 className="text-xl font-semibold text-white">{lead.name}</h2>
+            {lead.description && <p className="mt-2 text-sm text-zinc-300 whitespace-pre-line">{lead.description}</p>}
+          </div>
+          <div className="flex gap-2">
+            <button className="text-sm text-zinc-300" onClick={onClose}>Cerrar</button>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <h3 className="text-sm font-semibold text-white mb-3">Historial de WhatsApp</h3>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {chat.length === 0 ? <p className="text-xs text-zinc-500">No hay mensajes</p> : chat.map((m: any) => (
+                <div key={m.id} className="rounded-lg bg-white/5 p-2 border border-white/10">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-white">{m.sender}</span>
+                    <span className="text-xs text-zinc-400">{new Date(m.sent_at).toLocaleString('es-MX')}</span>
+                  </div>
+                  <p className="text-sm text-white whitespace-pre-line">{m.message}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <h3 className="text-sm font-semibold text-white mb-3">Bitácora de Auditoría</h3>
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {activity.length === 0 ? <p className="text-xs text-zinc-500">No hay actividad</p> : activity.map((a: any) => (
+                <div key={a.id} className="text-sm text-zinc-300">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-white">{a.performed_by_ai ? 'IA' : 'Humano'}</div>
+                    <div className="text-xs text-zinc-400">{new Date(a.created_at).toLocaleString('es-MX')}</div>
+                  </div>
+                  <div className="mt-1 text-xs">{a.description}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <h3 className="text-sm font-semibold text-white mb-3">Notas internas</h3>
+            <div className="space-y-3 max-h-48 overflow-y-auto">
+              {notes.length === 0 ? <p className="text-xs text-zinc-500">Sin notas</p> : notes.map((n: any) => (
+                <div key={n.id} className="rounded-lg bg-white/5 p-3">
+                  <div className="flex items-center justify-between text-xs text-zinc-400">
+                    <span>{n.authorType === 'ai' ? 'IA' : 'Humano'}</span>
+                    <span>{new Date(n.createdAt).toLocaleString('es-MX')}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-white whitespace-pre-line">{n.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <h3 className="text-sm font-semibold text-white mb-3">Recordatorios</h3>
+            <div className="space-y-2">
+              {reminders.length === 0 ? <p className="text-xs text-zinc-500">No hay recordatorios</p> : reminders.map((r: any) => (
+                <div key={r.id} className="rounded-lg bg-white/5 p-3">
+                  <div className="text-sm text-white">{r.text}</div>
+                  <div className="text-xs text-zinc-400">Vence: {new Date(r.dueAt).toLocaleDateString('es-MX')}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 

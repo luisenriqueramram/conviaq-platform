@@ -1,120 +1,163 @@
-import { NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { requireSession } from "@/lib/server/session";
 
-type Params = { params: { id: string } }
+type RouteCtx = { params: { id: string } | Promise<{ id: string }> };
 
-export async function POST(req: Request, ctx: any) {
-  const params = ctx?.params && typeof ctx.params?.then === 'function' ? await ctx.params : ctx?.params ?? {};
+export async function PATCH(req: Request, ctx: RouteCtx) {
+  const params = await Promise.resolve(ctx.params);
+
   try {
-    const tenantId = 1 // luego: de la sesión
-    const leadId = Number(params.id)
+    const { tenantId, userId } = await requireSession();
+    const leadId = Number(params.id);
+
     if (!Number.isFinite(leadId)) {
-      return NextResponse.json({ error: "Invalid lead id" }, { status: 400 })
+      return NextResponse.json({ ok: false, error: "Invalid lead id" }, { status: 400 });
     }
 
-    const body = await req.json()
-    const stageKey = (body.stage_key as string | undefined)?.trim()
-    const reason = (body.reason as string | undefined)?.trim() || null
-    const source = (body.source as string | undefined) || "manual"
-    const changedByUser = null // luego user.id
+    const body = await req.json();
+    const stageId = Number(body?.stageId);
+    const reason = (body?.reason as string | undefined)?.trim() ?? null;
+    const source = (body?.source as string | undefined)?.trim() || "pipeline_board";
 
-    if (!stageKey) {
-      return NextResponse.json(
-        { error: "stage_key is required" },
-        { status: 400 },
-      )
+    if (!Number.isFinite(stageId)) {
+      return NextResponse.json({ ok: false, error: "Invalid stage id" }, { status: 400 });
     }
 
-    // Traer lead + stage actual
     const leadResult = await db.query(
       `
-      SELECT l.id, l.tenant_id, l.pipeline_id, l.stage_id, ps.stage_key AS current_stage_key
-      FROM leads l
-      JOIN pipeline_stages ps ON ps.id = l.stage_id
-      WHERE l.id = $1
+        SELECT id, tenant_id, pipeline_id, stage_id
+        FROM leads
+        WHERE id = $1 AND tenant_id = $2
       `,
-      [leadId],
-    )
+      [leadId, tenantId]
+    );
 
     if (leadResult.rows.length === 0) {
-      return NextResponse.json({ error: "Lead not found" }, { status: 404 })
+      return NextResponse.json({ ok: false, error: "Lead not found" }, { status: 404 });
     }
 
-    const lead = leadResult.rows[0]
+    const lead = leadResult.rows[0];
 
-    if (lead.tenant_id !== tenantId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    // Ensure the requested stage belongs to the lead's pipeline. If not,
+    // attempt server-side mapping: look up the requested stage's stage_key/name
+    // and try to find a local stage in the lead.pipeline_id with the same
+    // stage_key or a matching name. This allows moving to "universal" stages
+    // by mapping them to tenant-local equivalents when available.
+    let useStageId = stageId;
 
-    if (lead.current_stage_key === stageKey) {
-      return NextResponse.json({ ok: true, skipped: true })
-    }
-
-    // Buscar el stage objetivo dentro del mismo pipeline
     const stageResult = await db.query(
-      `
-      SELECT id
-      FROM pipeline_stages
-      WHERE pipeline_id = $1
-        AND stage_key = $2
-      `,
-      [lead.pipeline_id, stageKey],
-    )
+      `SELECT id, pipeline_id, stage_key, name FROM pipeline_stages WHERE id = $1`,
+      [stageId]
+    );
 
     if (stageResult.rows.length === 0) {
-      return NextResponse.json(
-        { error: "Invalid stage_key for this pipeline" },
-        { status: 400 },
-      )
+      return NextResponse.json({ ok: false, error: "Invalid stage" }, { status: 400 });
     }
 
-    const newStageId = stageResult.rows[0].id as number
+    const requestedStage = stageResult.rows[0];
+    if (Number(requestedStage.pipeline_id) !== Number(lead.pipeline_id)) {
+      console.log('[PATCH /api/leads/[id]/stage] requested stage belongs to different pipeline', { requestedStage, leadPipeline: lead.pipeline_id });
 
-    await db.query("BEGIN")
+      // If the requested stage belongs to a universal pipeline (tenant_id IS NULL),
+      // allow using its id directly (the product wants to reuse universal stage ids).
+      const pipelineInfo = await db.query(`SELECT tenant_id FROM pipelines WHERE id = $1 LIMIT 1`, [requestedStage.pipeline_id]);
+      const isUniversal = pipelineInfo.rows.length > 0 && pipelineInfo.rows[0].tenant_id == null;
+      if (isUniversal) {
+        console.log('[PATCH] requested stage is from a universal pipeline; allowing direct use of stage id', requestedStage.id);
+        useStageId = requestedStage.id;
+      } else {
+        // try to find local equivalent by stage_key first, then by name
+        let localResult = null;
+        if (requestedStage.stage_key) {
+          console.log('[PATCH] trying to map by stage_key', requestedStage.stage_key);
+          localResult = await db.query(
+            `SELECT id FROM pipeline_stages WHERE pipeline_id = $1 AND stage_key = $2 LIMIT 1`,
+            [lead.pipeline_id, requestedStage.stage_key]
+          );
+        }
+        if ((!localResult || localResult.rows.length === 0) && requestedStage.name) {
+          console.log('[PATCH] trying to map by name', requestedStage.name);
+          localResult = await db.query(
+            `SELECT id FROM pipeline_stages WHERE pipeline_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1`,
+            [lead.pipeline_id, requestedStage.name]
+          );
+        }
 
-    // Actualizar lead
+        if (localResult && localResult.rows.length > 0) {
+          useStageId = localResult.rows[0].id;
+        } else {
+          // No local equivalent found — create a local copy of the stage for this pipeline
+          // Determine next position
+          const posRes = await db.query(`SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM pipeline_stages WHERE pipeline_id = $1`, [lead.pipeline_id]);
+          const nextPos = posRes.rows[0]?.next_pos ?? 0;
+
+          console.log('[PATCH] creating local stage copy for pipeline', lead.pipeline_id);
+          const ins = await db.query(
+            `INSERT INTO pipeline_stages (pipeline_id, name, stage_key, position, color, created_at)
+             VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id`,
+            [lead.pipeline_id, requestedStage.name || 'Sin nombre', requestedStage.stage_key || null, nextPos, null]
+          );
+          if (ins.rows.length === 0) {
+            return NextResponse.json({ ok: false, error: "Could not create local stage" }, { status: 500 });
+          }
+          console.log('[PATCH] created local stage id', ins.rows[0].id);
+          useStageId = ins.rows[0].id;
+        }
+      }
+    }
+
+    await db.query("BEGIN");
+
     await db.query(
       `
-      UPDATE leads
-      SET stage_id = $1,
-          updated_at = NOW()
-      WHERE id = $2
+        UPDATE leads
+        SET stage_id = $1, updated_at = NOW()
+        WHERE id = $2 AND tenant_id = $3
       `,
-      [newStageId, leadId],
-    )
+      [useStageId, leadId, tenantId]
+    );
 
-    // Registrar historial
     await db.query(
       `
-      INSERT INTO lead_stage_history (
-        lead_id,
-        from_stage_id,
-        to_stage_id,
-        changed_by_user,
-        source,
-        reason
-      )
-      VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO lead_stage_history (
+          lead_id,
+          from_stage_id,
+          to_stage_id,
+          changed_by_user,
+          source,
+          reason
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
       `,
-      [
-        lead.id,
-        lead.stage_id, // old
-        newStageId, // new
-        changedByUser,
-        source,
-        reason,
-      ],
-    )
+      [leadId, lead.stage_id, useStageId, userId, source, reason]
+    );
 
-    await db.query("COMMIT")
+    await db.query(
+      `
+        INSERT INTO lead_activity_log (
+          lead_id,
+          tenant_id,
+          activity_type,
+          description,
+          performed_by_ai,
+          metadata,
+          created_at
+        )
+        VALUES ($1, $2, 'stage_change', 'Movimiento manual desde pipeline', false, $3, NOW())
+      `,
+      [leadId, tenantId, JSON.stringify({ userId, stageId: useStageId, source })]
+    );
 
-    return NextResponse.json({ ok: true })
-  } catch (error) {
-    console.error("🔥 Error en POST /api/leads/[id]/stage:", error)
-    await db.query("ROLLBACK").catch(() => {})
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    )
+    await db.query("COMMIT");
+
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    await db.query("ROLLBACK").catch(() => undefined);
+    if (String(error?.message) === "UNAUTHORIZED") {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    console.error("🔥 Error en PATCH /api/leads/[id]/stage:", error);
+    return NextResponse.json({ ok: false, error: "Internal server error" }, { status: 500 });
   }
 }
