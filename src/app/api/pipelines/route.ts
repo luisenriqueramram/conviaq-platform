@@ -90,8 +90,8 @@ export async function GET() {
         const stageMap = new Map(stages.map(s => [Number(s.id), s]));
         // Map using pipeline-local stages first, then fallback to globalStageMap
         stages = stageOrderInt
-          .map(id => stageMap.get(id) ?? globalStageMap.get(id))
-          .filter(Boolean);
+          .map((id) => stageMap.get(id) ?? globalStageMap.get(id))
+          .filter((stage): stage is StageRow => Boolean(stage));
       }
       // DEBUG: Imprimir resultado final de stages
       // console.log(`Pipeline ${pipeline.id} final stages:`, stages);
