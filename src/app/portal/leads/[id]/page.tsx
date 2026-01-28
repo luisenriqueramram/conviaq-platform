@@ -419,14 +419,34 @@ const LeadDetailPage = () => {
           )}
         </div>
       </div>
+
+      {showModal && (
+        <LeadDetailModal
+          lead={lead}
+          chat={chat}
+          activity={activity}
+          notes={notes}
+          reminders={reminders}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   );
 };
 
 export default LeadDetailPage;
 
+type LeadDetailModalProps = {
+  lead: Lead;
+  chat: ChatMessage[];
+  activity: Activity[];
+  notes: Note[];
+  reminders: Reminder[];
+  onClose: () => void;
+};
+
 // Modal styles are inline here — we render full detail modal when requested
-function LeadDetailModal({ lead, chat, activity, notes, reminders, onClose }: any) {
+function LeadDetailModal({ lead, chat, activity, notes, reminders, onClose }: LeadDetailModalProps) {
   if (!lead) return null;
   return (
     <AnimatePresence>
@@ -465,13 +485,13 @@ function LeadDetailModal({ lead, chat, activity, notes, reminders, onClose }: an
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <h3 className="text-sm font-semibold text-white mb-3">Historial de WhatsApp</h3>
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {chat.length === 0 ? <p className="text-xs text-zinc-500">No hay mensajes</p> : chat.map((m: any) => (
-                <div key={m.id} className="rounded-lg bg-white/5 p-2 border border-white/10">
+              {chat.length === 0 ? <p className="text-xs text-zinc-500">No hay mensajes</p> : chat.map((message) => (
+                <div key={message.id} className="rounded-lg bg-white/5 p-2 border border-white/10">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-white">{m.sender}</span>
-                    <span className="text-xs text-zinc-400">{new Date(m.sent_at).toLocaleString('es-MX')}</span>
+                    <span className="text-xs font-bold text-white">{message.sender}</span>
+                    <span className="text-xs text-zinc-400">{new Date(message.sent_at).toLocaleString('es-MX')}</span>
                   </div>
-                  <p className="text-sm text-white whitespace-pre-line">{m.message}</p>
+                  <p className="text-sm text-white whitespace-pre-line">{message.message}</p>
                 </div>
               ))}
             </div>
@@ -480,13 +500,13 @@ function LeadDetailModal({ lead, chat, activity, notes, reminders, onClose }: an
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <h3 className="text-sm font-semibold text-white mb-3">Bitácora de Auditoría</h3>
             <div className="space-y-3 max-h-60 overflow-y-auto">
-              {activity.length === 0 ? <p className="text-xs text-zinc-500">No hay actividad</p> : activity.map((a: any) => (
-                <div key={a.id} className="text-sm text-zinc-300">
+              {activity.length === 0 ? <p className="text-xs text-zinc-500">No hay actividad</p> : activity.map((entry) => (
+                <div key={entry.id} className="text-sm text-zinc-300">
                   <div className="flex items-center justify-between">
-                    <div className="font-semibold text-white">{a.performed_by_ai ? 'IA' : 'Humano'}</div>
-                    <div className="text-xs text-zinc-400">{new Date(a.created_at).toLocaleString('es-MX')}</div>
+                    <div className="font-semibold text-white">{entry.performed_by_ai ? 'IA' : 'Humano'}</div>
+                    <div className="text-xs text-zinc-400">{new Date(entry.created_at).toLocaleString('es-MX')}</div>
                   </div>
-                  <div className="mt-1 text-xs">{a.description}</div>
+                  <div className="mt-1 text-xs">{entry.description}</div>
                 </div>
               ))}
             </div>
@@ -497,13 +517,13 @@ function LeadDetailModal({ lead, chat, activity, notes, reminders, onClose }: an
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <h3 className="text-sm font-semibold text-white mb-3">Notas internas</h3>
             <div className="space-y-3 max-h-48 overflow-y-auto">
-              {notes.length === 0 ? <p className="text-xs text-zinc-500">Sin notas</p> : notes.map((n: any) => (
-                <div key={n.id} className="rounded-lg bg-white/5 p-3">
+              {notes.length === 0 ? <p className="text-xs text-zinc-500">Sin notas</p> : notes.map((noteItem) => (
+                <div key={noteItem.id} className="rounded-lg bg-white/5 p-3">
                   <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span>{n.authorType === 'ai' ? 'IA' : 'Humano'}</span>
-                    <span>{new Date(n.createdAt).toLocaleString('es-MX')}</span>
+                    <span>{noteItem.authorType === 'ai' ? 'IA' : 'Humano'}</span>
+                    <span>{new Date(noteItem.createdAt).toLocaleString('es-MX')}</span>
                   </div>
-                  <p className="mt-2 text-sm text-white whitespace-pre-line">{n.content}</p>
+                  <p className="mt-2 text-sm text-white whitespace-pre-line">{noteItem.content}</p>
                 </div>
               ))}
             </div>
@@ -512,17 +532,18 @@ function LeadDetailModal({ lead, chat, activity, notes, reminders, onClose }: an
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <h3 className="text-sm font-semibold text-white mb-3">Recordatorios</h3>
             <div className="space-y-2">
-              {reminders.length === 0 ? <p className="text-xs text-zinc-500">No hay recordatorios</p> : reminders.map((r: any) => (
-                <div key={r.id} className="rounded-lg bg-white/5 p-3">
-                  <div className="text-sm text-white">{r.text}</div>
-                  <div className="text-xs text-zinc-400">Vence: {new Date(r.dueAt).toLocaleDateString('es-MX')}</div>
+              {reminders.length === 0 ? <p className="text-xs text-zinc-500">No hay recordatorios</p> : reminders.map((reminder) => (
+                <div key={reminder.id} className="rounded-lg bg-white/5 p-3">
+                  <div className="text-sm text-white">{reminder.text}</div>
+                  <div className="text-xs text-zinc-400">Vence: {new Date(reminder.dueAt).toLocaleDateString('es-MX')}</div>
                 </div>
               ))}
             </div>
           </div>
         </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
