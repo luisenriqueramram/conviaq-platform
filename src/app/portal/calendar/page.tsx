@@ -33,10 +33,45 @@ const toTitle = (value: string) =>
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
+const RAW_TIME_PATTERN = /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i;
+
+const to24HourLabel = (value?: string | null) => {
+  if (!value) return '';
+  const match = value.match(RAW_TIME_PATTERN);
+  if (!match) return '';
+  let hours = Number(match[1]);
+  const minutes = match[2];
+  const meridiem = match[4]?.toUpperCase();
+
+  if (meridiem === 'PM' && hours < 12) {
+    hours += 12;
+  }
+  if (meridiem === 'AM' && hours === 12) {
+    hours = 0;
+  }
+
+  return `${hours.toString().padStart(2, '0')}:${minutes}`;
+};
+
+const formatScheduleTime = (value?: string | null) => to24HourLabel(value) || value?.trim() || '';
+
+const formatScheduleWindow = (start?: string | null, end?: string | null) => {
+  const startLabel = formatScheduleTime(start);
+  const endLabel = formatScheduleTime(end);
+  if (startLabel && endLabel) {
+    return `${startLabel} - ${endLabel}`;
+  }
+  return [startLabel, endLabel].filter(Boolean).join(' - ') || '';
+};
+
 const formatBreak = (range: string) => {
-  const [start, end] = range.split('-').map((chunk) => chunk.trim());
-  if (!start || !end) return range;
-  return `${start} - ${end}`;
+  const [startRaw, endRaw] = range.split('-');
+  const start = formatScheduleTime(startRaw);
+  const end = formatScheduleTime(endRaw);
+  if (start && end) {
+    return `${start} - ${end}`;
+  }
+  return range;
 };
 
 const findScheduleForDate = (date: Date, schedules: ResolvedSchedule[]) => {
@@ -178,6 +213,7 @@ export default function CalendarPage() {
         timeZone: timezone,
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false,
       }),
     [timezone]
   );
@@ -196,7 +232,17 @@ export default function CalendarPage() {
   const getDateKey = (value: Date | string) =>
     dateKeyFormatter.format(typeof value === 'string' ? new Date(value) : value);
 
-  const formatTime = (value: string) => timeFormatter.format(new Date(value));
+  const formatTime = (value: string) => {
+    const normalized = to24HourLabel(value);
+    if (normalized) {
+      return normalized;
+    }
+    try {
+      return timeFormatter.format(new Date(value));
+    } catch {
+      return value;
+    }
+  };
 
   const scheduleEntries = useMemo<ResolvedSchedule[]>(() => {
     if (!config?.schema?.schedules) return [];
@@ -567,14 +613,14 @@ export default function CalendarPage() {
                               </div>
                               {schedule && (
                                 <p className="text-[10px] text-slate-400">
-                                  Ventana {schedule.start} - {schedule.end}
+                                  Ventana {formatScheduleWindow(schedule.start, schedule.end)}
                                 </p>
                               )}
                             </>
                           ) : schedule ? (
                             <>
                               <p className="text-xs text-emerald-200 font-semibold">
-                                {schedule.start} - {schedule.end}
+                                {formatScheduleWindow(schedule.start, schedule.end)}
                               </p>
                               {schedule.breaks?.length ? (
                                 <p className="text-[10px] text-emerald-100/80">
@@ -619,9 +665,7 @@ export default function CalendarPage() {
                     <div className="space-y-3 text-sm text-slate-200">
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-emerald-300" />
-                        <span>
-                          {selectedSchedule.start} - {selectedSchedule.end}
-                        </span>
+                        <span>{formatScheduleWindow(selectedSchedule.start, selectedSchedule.end)}</span>
                       </div>
                       {selectedSchedule.breaks?.length ? (
                         <div className="flex flex-wrap gap-2">

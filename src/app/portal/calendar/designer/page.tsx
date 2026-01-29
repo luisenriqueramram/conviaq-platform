@@ -76,11 +76,78 @@ const CONCURRENCY_OPTIONS = [
   { value: 'slots', label: 'Por slots' },
 ];
 
+const TIME_TOKEN_REGEX = /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i;
+
+const sanitizeTimeChunk = (value?: string | null) => {
+  if (!value) return '';
+  const match = value.match(TIME_TOKEN_REGEX);
+  if (!match) return '';
+  let hours = Number(match[1]);
+  const minutes = match[2];
+  const meridiem = match[4]?.toUpperCase();
+
+  if (meridiem === 'PM' && hours < 12) {
+    hours += 12;
+  }
+  if (meridiem === 'AM' && hours === 12) {
+    hours = 0;
+  }
+
+  return `${hours.toString().padStart(2, '0')}:${minutes}`;
+};
+
+const splitBreakRange = (range?: string | null) => {
+  if (!range) {
+    return { start: '', end: '' };
+  }
+  const [rawStart, rawEnd] = range.split('-');
+  return {
+    start: sanitizeTimeChunk(rawStart),
+    end: sanitizeTimeChunk(rawEnd),
+  };
+};
+
+const composeBreakRange = (start?: string | null, end?: string | null) => {
+  const safeStart = sanitizeTimeChunk(start);
+  const safeEnd = sanitizeTimeChunk(end);
+  if (!safeStart && !safeEnd) {
+    return ' - ';
+  }
+  return `${safeStart}-${safeEnd}`;
+};
+
+const normalizeBreakEntries = (entries?: string[] | null) =>
+  (entries ?? [])
+    .map((range) => {
+      const { start, end } = splitBreakRange(range);
+      if (!start || !end) {
+        return null;
+      }
+      return `${start}-${end}`;
+    })
+    .filter((value): value is string => Boolean(value));
+
 const cloneSchema = (input?: BookingSchema | null): BookingSchema =>
   JSON.parse(JSON.stringify(input ?? DEFAULT_SCHEMA));
 
 const ensureServices = (schema: BookingSchema) => schema.services ?? {};
 const ensureSchedules = (schema: BookingSchema) => schema.schedules ?? {};
+
+const prepareSchemaForSave = (input: BookingSchema): BookingSchema => {
+  const draft = cloneSchema(input);
+  if (!draft.schedules) {
+    return draft;
+  }
+  const nextSchedules: Record<string, BookingScheduleBlock> = {};
+  Object.entries(draft.schedules).forEach(([key, block]) => {
+    nextSchedules[key] = {
+      ...block,
+      breaks: normalizeBreakEntries(block.breaks),
+    };
+  });
+  draft.schedules = nextSchedules;
+  return draft;
+};
 
 export default function CalendarDesignerPage() {
   const [loading, setLoading] = useState(true);
@@ -328,6 +395,37 @@ export default function CalendarDesignerPage() {
     updateSchedule(key, 'days', nextDays.sort((a, b) => a - b));
   };
 
+  const handleBreakChange = (
+    key: string,
+    index: number,
+    part: 'start' | 'end',
+    rawValue: string
+  ) => {
+    const block = ensureSchedules(schema)[key];
+    if (!block) return;
+    const nextBreaks = [...(block.breaks ?? [])];
+    const current = splitBreakRange(nextBreaks[index]);
+    const nextRange =
+      part === 'start'
+        ? composeBreakRange(rawValue, current.end)
+        : composeBreakRange(current.start, rawValue);
+    nextBreaks[index] = nextRange;
+    updateSchedule(key, 'breaks', nextBreaks);
+  };
+
+  const addBreakRow = (key: string) => {
+    const block = ensureSchedules(schema)[key];
+    const nextBreaks = [...(block?.breaks ?? []), composeBreakRange('', '')];
+    updateSchedule(key, 'breaks', nextBreaks);
+  };
+
+  const removeBreakRow = (key: string, index: number) => {
+    const block = ensureSchedules(schema)[key];
+    if (!block) return;
+    const nextBreaks = (block.breaks ?? []).filter((_, idx) => idx !== index);
+    updateSchedule(key, 'breaks', nextBreaks);
+  };
+
   const resetChanges = () => {
     if (originalSchema) {
       setSchema(cloneSchema(originalSchema));
@@ -342,12 +440,13 @@ export default function CalendarDesignerPage() {
     try {
       setSaving(true);
       setFeedback(null);
+      const payload = prepareSchemaForSave(schema);
       const res = await fetch('/api/calendar/config', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ schema }),
+        body: JSON.stringify({ schema: payload }),
       });
       const data: SaveResponse = await res.json();
       if (!res.ok || !data.ok) {
@@ -742,6 +841,7 @@ export default function CalendarDesignerPage() {
                 <div className="space-y-4">
                   {orderedScheduleEntries.map(([key, block]) => {
                     const isNew = newScheduleKeys.includes(key);
+                    const blockBreaks = block.breaks ?? [];
                     return (
                       <div
                         key={key}
@@ -805,23 +905,59 @@ export default function CalendarDesignerPage() {
                         </label>
                       </div>
 
-                      <label className="space-y-1">
-                        <span className="text-sm text-slate-300">Descansos (HH:MM-HH:MM)</span>
-                        <input
-                          value={(block.breaks ?? []).join(', ')}
-                          onChange={(e) =>
-                            updateSchedule(
-                              key,
-                              'breaks',
-                              e.target.value
-                                .split(',')
-                                .map((chunk) => chunk.trim())
-                                .filter(Boolean)
-                            )
-                          }
-                          className="w-full rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-white"
-                        />
-                      </label>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-slate-300">Descansos (formato 24h)</span>
+                          <button
+                            type="button"
+                            onClick={() => addBreakRow(key)}
+                            className="text-xs inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-slate-200 hover:bg-slate-800/70"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Agregar descanso
+                          </button>
+                        </div>
+                        {blockBreaks.length ? (
+                          <div className="space-y-2">
+                            {blockBreaks.map((range, index) => {
+                              const { start, end } = splitBreakRange(range);
+                              return (
+                                <div
+                                  key={`${key}-break-${index}`}
+                                  className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2"
+                                >
+                                  <input
+                                    type="time"
+                                    value={start || ''}
+                                    onChange={(e) => handleBreakChange(key, index, 'start', e.target.value)}
+                                    className="rounded-md border border-slate-800 bg-slate-950/70 px-3 py-1.5 text-white"
+                                  />
+                                  <span className="text-xs uppercase tracking-wide text-slate-500">a</span>
+                                  <input
+                                    type="time"
+                                    value={end || ''}
+                                    onChange={(e) => handleBreakChange(key, index, 'end', e.target.value)}
+                                    className="rounded-md border border-slate-800 bg-slate-950/70 px-3 py-1.5 text-white"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeBreakRow(key, index)}
+                                    className="text-xs inline-flex items-center gap-1 rounded-md border border-rose-600/60 px-2 py-1 text-rose-200 hover:bg-rose-600/10"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    Quitar
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            Sin descansos configurados. Usa el botón para agregar uno nuevo.
+                          </p>
+                        )}
+                        <p className="text-xs text-slate-500">Utiliza horas en formato HH:mm (24h).</p>
+                      </div>
 
                       <div className="flex flex-wrap gap-2">
                         {WEEKDAY_OPTIONS.map((day) => {
