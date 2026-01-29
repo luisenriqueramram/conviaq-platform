@@ -130,7 +130,7 @@ export default function PipelineFlowPage() {
   );
 
   const ganadoStageIds = useMemo(
-    () => stages.filter((s) => s.is_final || /ganado/i.test(s.name)).map((s) => s.id),
+    () => stages.filter((s) => s.is_final && /ganad/i.test(s.name)).map((s) => s.id),
     [stages]
   );
 
@@ -254,6 +254,9 @@ export default function PipelineFlowPage() {
       <div className="min-h-screen bg-[#050608] text-white px-4 py-6">
         <div className="mx-auto max-w-[1380px] space-y-4">
           <div className="h-12 w-64 animate-pulse rounded-xl bg-white/5" />
+          <p className="text-sm text-white/60">
+            Esto puede tardar hasta 15 segundos si hay muchos leads. Por favor, mantente en esta pantalla para no reiniciar la carga.
+          </p>
           <div className="flex flex-wrap gap-3">
             {Array.from({ length: 3 }).map((_, idx) => (
               <div key={idx} className="h-20 w-48 animate-pulse rounded-2xl bg-white/5" />
