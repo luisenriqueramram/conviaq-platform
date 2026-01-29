@@ -6,7 +6,16 @@ import { dbAutolavado } from './db-autolavado';
 
 let warmupInterval: NodeJS.Timeout | null = null;
 
+const shouldWarmup = process.env.DB_WARMUP_ENABLED === 'true' || process.env.NODE_ENV === 'development';
+
 export function startWarmup() {
+  if (!shouldWarmup) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[DB Warmup] Skipped (disabled by configuration)');
+    }
+    return;
+  }
+
   if (warmupInterval) {
     console.log('[DB Warmup] Already running');
     return;
@@ -44,5 +53,7 @@ export function stopWarmup() {
     clearInterval(warmupInterval);
     warmupInterval = null;
     console.log('[DB Warmup] Stopped');
+  } else if (shouldWarmup) {
+    console.log('[DB Warmup] Not running');
   }
 }

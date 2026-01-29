@@ -8,6 +8,36 @@ dns.setDefaultResultOrder('ipv4first');
 let poolInstance: Pool | null = null;
 let isCreatingPool = false;
 
+const CRITICAL_ERROR_KEYWORDS = [
+  'timeout',
+  'connect',
+  'econnreset',
+  'connection terminated',
+  'terminating connection'
+];
+
+function shouldResetPool(error: unknown) {
+  if (!error || typeof error !== 'object' || !('message' in error)) {
+    return false;
+  }
+  const message = String((error as any).message || '').toLowerCase();
+  return CRITICAL_ERROR_KEYWORDS.some(keyword => message.includes(keyword));
+}
+
+function resetPool(reason: string) {
+  if (!poolInstance) {
+    return;
+  }
+
+  const poolToClose = poolInstance;
+  poolInstance = null;
+  console.warn(`[CRM DB] Resetting pool (${reason})`);
+
+  poolToClose.end().catch((endError) => {
+    console.error('[CRM DB] Failed to close pool gracefully:', (endError as any)?.message || endError);
+  });
+}
+
 function getPool() {
   // Si ya existe, retornar
   if (poolInstance) {
@@ -30,17 +60,20 @@ function getPool() {
     
     console.log('[CRM DB] Creating new pool connection...');
     
+    const maxConnections = Number(process.env.CRM_DB_POOL_MAX ?? 10);
+    const minConnections = Number(process.env.CRM_DB_POOL_MIN ?? 1);
+
     poolInstance = new Pool({
       connectionString: process.env.DATABASE_URL,
-      max: 5,
-      min: 1, // Mantener 1 conexión siempre lista
-      connectionTimeoutMillis: 30000,
-      idleTimeoutMillis: 120000, // 2 minutos antes de cerrar idle
-      query_timeout: 30000,
-      statement_timeout: 30000,
-      allowExitOnIdle: false, // NO cerrar el pool automáticamente
-      keepAlive: true, // Mantener conexiones vivas
-      keepAliveInitialDelayMillis: 10000,
+      max: Number.isFinite(maxConnections) ? maxConnections : 10,
+      min: Number.isFinite(minConnections) ? minConnections : 1,
+      connectionTimeoutMillis: Number(process.env.CRM_DB_CONNECTION_TIMEOUT ?? 30000),
+      idleTimeoutMillis: Number(process.env.CRM_DB_IDLE_TIMEOUT ?? 120000),
+      query_timeout: Number(process.env.CRM_DB_QUERY_TIMEOUT ?? 30000),
+      statement_timeout: Number(process.env.CRM_DB_STATEMENT_TIMEOUT ?? 30000),
+      allowExitOnIdle: false,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: Number(process.env.CRM_DB_KEEPALIVE_DELAY ?? 10000),
     });
 
     // Monitorear conexiones
@@ -58,6 +91,9 @@ function getPool() {
 
     poolInstance.on('error', (err, client) => {
       console.error('[CRM DB] Pool error:', err.message);
+      if (shouldResetPool(err)) {
+        resetPool('pool error event');
+      }
     });
 
     console.log('[CRM DB] Pool created successfully');
@@ -91,6 +127,10 @@ export async function query<T = any>(
     } catch (error: any) {
       lastError = error;
       
+      if (shouldResetPool(error)) {
+        resetPool('query failure');
+      }
+
       if (attempt === maxRetries) {
         console.error(`[CRM DB] Query failed after ${maxRetries} attempts:`, error.message);
         break;
