@@ -60,8 +60,9 @@ function getPool() {
     
     console.log('[CRM DB] Creating new pool connection...');
     
-    const maxConnections = Number(process.env.CRM_DB_POOL_MAX ?? 10);
-    const minConnections = Number(process.env.CRM_DB_POOL_MIN ?? 1);
+    const maxConnections = Number(process.env.CRM_DB_POOL_MAX ?? 3);
+    const minConnections = Number(process.env.CRM_DB_POOL_MIN ?? 0);
+    const allowExitOnIdle = String(process.env.CRM_DB_ALLOW_EXIT_ON_IDLE ?? 'true').toLowerCase() === 'true';
 
     poolInstance = new Pool({
       connectionString: process.env.DATABASE_URL,
@@ -71,9 +72,15 @@ function getPool() {
       idleTimeoutMillis: Number(process.env.CRM_DB_IDLE_TIMEOUT ?? 120000),
       query_timeout: Number(process.env.CRM_DB_QUERY_TIMEOUT ?? 30000),
       statement_timeout: Number(process.env.CRM_DB_STATEMENT_TIMEOUT ?? 30000),
-      allowExitOnIdle: false,
+      allowExitOnIdle,
       keepAlive: true,
       keepAliveInitialDelayMillis: Number(process.env.CRM_DB_KEEPALIVE_DELAY ?? 10000),
+    });
+
+    console.log('[CRM DB] Pool configuration', {
+      max: poolInstance.options.max,
+      min: poolInstance.options.min,
+      allowExitOnIdle,
     });
 
     // Monitorear conexiones

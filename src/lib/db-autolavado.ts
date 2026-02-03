@@ -88,8 +88,9 @@ function getPool() {
     
     console.log('[Autolavado DB] Creating new pool connection...');
     
-    const maxConnections = Number(process.env.AUTOLAVADO_DB_POOL_MAX ?? 5);
-    const minConnections = Number(process.env.AUTOLAVADO_DB_POOL_MIN ?? 1);
+    const maxConnections = Number(process.env.AUTOLAVADO_DB_POOL_MAX ?? 3);
+    const minConnections = Number(process.env.AUTOLAVADO_DB_POOL_MIN ?? 0);
+    const allowExitOnIdle = String(process.env.AUTOLAVADO_DB_ALLOW_EXIT_ON_IDLE ?? 'true').toLowerCase() === 'true';
 
     poolInstance = new Pool({
       connectionString: AUTOLAVADO_DB_URL,
@@ -99,9 +100,15 @@ function getPool() {
       idleTimeoutMillis: Number(process.env.AUTOLAVADO_DB_IDLE_TIMEOUT ?? 120000),
       query_timeout: Number(process.env.AUTOLAVADO_DB_QUERY_TIMEOUT ?? 30000),
       statement_timeout: Number(process.env.AUTOLAVADO_DB_STATEMENT_TIMEOUT ?? 30000),
-      allowExitOnIdle: false,
+      allowExitOnIdle,
       keepAlive: true,
       keepAliveInitialDelayMillis: Number(process.env.AUTOLAVADO_DB_KEEPALIVE_DELAY ?? 10000),
+    });
+
+    console.log('[Autolavado DB] Pool configuration', {
+      max: poolInstance.options.max,
+      min: poolInstance.options.min,
+      allowExitOnIdle,
     });
 
     // Monitorear conexiones
