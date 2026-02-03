@@ -37,6 +37,36 @@ dns.setDefaultResultOrder('ipv4first');
 let poolInstance: Pool | null = null;
 let isCreatingPool = false;
 
+const CRITICAL_ERROR_KEYWORDS = [
+  'timeout',
+  'connect',
+  'econnreset',
+  'connection terminated',
+  'terminating connection'
+];
+
+function shouldResetPool(error: unknown) {
+  if (!error || typeof error !== 'object' || !('message' in error)) {
+    return false;
+  }
+  const message = String((error as any).message || '').toLowerCase();
+  return CRITICAL_ERROR_KEYWORDS.some(keyword => message.includes(keyword));
+}
+
+function resetPool(reason: string) {
+  if (!poolInstance) {
+    return;
+  }
+
+  const poolToClose = poolInstance;
+  poolInstance = null;
+  console.warn(`[Autolavado DB] Resetting pool (${reason})`);
+
+  poolToClose.end().catch((endError) => {
+    console.error('[Autolavado DB] Failed to close pool gracefully:', (endError as any)?.message || endError);
+  });
+}
+
 function getPool() {
   // Si ya existe, retornar
   if (poolInstance) {
@@ -58,17 +88,20 @@ function getPool() {
     
     console.log('[Autolavado DB] Creating new pool connection...');
     
+    const maxConnections = Number(process.env.AUTOLAVADO_DB_POOL_MAX ?? 5);
+    const minConnections = Number(process.env.AUTOLAVADO_DB_POOL_MIN ?? 1);
+
     poolInstance = new Pool({
       connectionString: AUTOLAVADO_DB_URL,
-      max: 5,
-      min: 1, // Mantener 1 conexión siempre lista
-      connectionTimeoutMillis: 30000,
-      idleTimeoutMillis: 120000, // 2 minutos antes de cerrar idle
-      query_timeout: 30000,
-      statement_timeout: 30000,
-      allowExitOnIdle: false, // NO cerrar el pool automáticamente
-      keepAlive: true, // Mantener conexiones vivas
-      keepAliveInitialDelayMillis: 10000, // Primer keep-alive a los 10s
+      max: Number.isFinite(maxConnections) ? maxConnections : 5,
+      min: Number.isFinite(minConnections) ? minConnections : 1,
+      connectionTimeoutMillis: Number(process.env.AUTOLAVADO_DB_CONNECTION_TIMEOUT ?? 30000),
+      idleTimeoutMillis: Number(process.env.AUTOLAVADO_DB_IDLE_TIMEOUT ?? 120000),
+      query_timeout: Number(process.env.AUTOLAVADO_DB_QUERY_TIMEOUT ?? 30000),
+      statement_timeout: Number(process.env.AUTOLAVADO_DB_STATEMENT_TIMEOUT ?? 30000),
+      allowExitOnIdle: false,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: Number(process.env.AUTOLAVADO_DB_KEEPALIVE_DELAY ?? 10000),
     });
 
     // Monitorear conexiones
@@ -84,17 +117,10 @@ function getPool() {
       console.log('[Autolavado DB] Client removed, idle:', poolInstance?.idleCount);
     });
 
-    poolInstance.on('error', (err, client) => {
+    poolInstance.on('error', (err) => {
       console.error('[Autolavado DB] Pool error:', err.message);
-      // Si el error es crítico, destruir el pool y forzar recreación en el siguiente uso
-      if (err.message?.includes('timeout') || err.message?.includes('connect') || err.message?.includes('ECONNRESET') || err.message?.includes('Connection terminated')) {
-        console.warn('[Autolavado DB] Reiniciando pool por error crítico...');
-        try {
-          poolInstance?.end();
-        } catch (e) {
-          console.error('[Autolavado DB] Error al cerrar pool:', (e as any)?.message || e);
-        }
-        poolInstance = null;
+      if (shouldResetPool(err)) {
+        resetPool('pool error event');
       }
     });
 
@@ -140,14 +166,9 @@ export async function queryAutolavado<T = any>(
       console.error(`[Autolavado DB] Attempt ${attempt} failed after ${duration}ms:`, error.message);
       
       // Si es timeout o connection error, reiniciar el pool para forzar reconexión limpia
-      if (error.message?.includes('timeout') || error.message?.includes('connect') || error.message?.includes('ECONNRESET') || error.message?.includes('Connection terminated')) {
+      if (shouldResetPool(error)) {
         console.log('[Autolavado DB] Connection issue detected, pool will be reset and retried');
-        try {
-          poolInstance?.end();
-        } catch (e) {
-          console.error('[Autolavado DB] Error al cerrar pool:', (e as any)?.message || e);
-        }
-        poolInstance = null;
+        resetPool('query failure');
       }
       
       // Si es el último intento, no esperar
