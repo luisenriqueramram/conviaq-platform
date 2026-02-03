@@ -37,6 +37,10 @@ dns.setDefaultResultOrder('ipv4first');
 let poolInstance: Pool | null = null;
 let isCreatingPool = false;
 
+const MAX_QUERY_RETRIES = Number(process.env.AUTOLAVADO_DB_MAX_RETRIES ?? 5);
+const RETRY_BASE_DELAY = Number(process.env.AUTOLAVADO_DB_RETRY_BASE_DELAY ?? 250);
+const RETRY_MAX_DELAY = Number(process.env.AUTOLAVADO_DB_RETRY_MAX_DELAY ?? 2000);
+
 const CRITICAL_ERROR_KEYWORDS = [
   'timeout',
   'connect',
@@ -139,8 +143,16 @@ function getPool() {
 }
 
 export const dbAutolavado = new Proxy({} as Pool, {
-  get(target, prop) {
-    return (getPool() as any)[prop];
+  get(_target, prop) {
+    if (prop === 'query') {
+      return executeAutolavadoQuery;
+    }
+    const pool = getPool() as any;
+    const value = pool[prop];
+    if (typeof value === 'function') {
+      return value.bind(pool);
+    }
+    return value;
   }
 });
 
@@ -149,7 +161,14 @@ export async function queryAutolavado<T = any>(
   text: string,
   params?: any[]
 ): Promise<{ rows: T[]; rowCount: number }> {
-  const maxRetries = 5; // Aumentar a 5 intentos
+  return executeAutolavadoQuery<T>(text, params);
+}
+
+async function executeAutolavadoQuery<T = any>(
+  text: string,
+  params?: any[]
+): Promise<{ rows: T[]; rowCount: number }> {
+  const maxRetries = Math.max(1, MAX_QUERY_RETRIES);
   let lastError: any;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -158,7 +177,7 @@ export async function queryAutolavado<T = any>(
     try {
       console.log(`[Autolavado DB] Attempt ${attempt}/${maxRetries}: Executing query`);
       
-      const result = await dbAutolavado.query(text, params);
+      const result = await getPool().query(text, params);
       
       const duration = Date.now() - attemptStartTime;
       console.log(`[Autolavado DB] Query succeeded in ${duration}ms on attempt ${attempt}`);
@@ -172,21 +191,22 @@ export async function queryAutolavado<T = any>(
       lastError = error;
       console.error(`[Autolavado DB] Attempt ${attempt} failed after ${duration}ms:`, error.message);
       
-      // Si es timeout o connection error, reiniciar el pool para forzar reconexión limpia
       if (shouldResetPool(error)) {
         console.log('[Autolavado DB] Connection issue detected, pool will be reset and retried');
         resetPool('query failure');
       }
       
-      // Si es el último intento, no esperar
       if (attempt === maxRetries) {
         console.error('[Autolavado DB] All retry attempts failed');
         break;
       }
       
-      // Esperar con backoff exponencial: 1s, 2s, 4s, 8s, 10s
-      const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-      console.log(`[Autolavado DB] Waiting ${waitTime}ms before retry...`);
+      const jitter = Math.random() * 50;
+      const waitTime = Math.min(
+        RETRY_BASE_DELAY * Math.pow(2, attempt - 1),
+        RETRY_MAX_DELAY
+      ) + jitter;
+      console.log(`[Autolavado DB] Waiting ${Math.round(waitTime)}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
