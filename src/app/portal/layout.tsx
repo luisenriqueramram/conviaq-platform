@@ -74,7 +74,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const isK = e.key.toLowerCase() === "k";
+      const isK = e.key && e.key.toLowerCase() === "k";
       if ((e.metaKey || e.ctrlKey) && isK) {
         e.preventDefault();
         searchRef.current?.focus();
